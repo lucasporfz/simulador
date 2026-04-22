@@ -1,1058 +1,986 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <title>Calculadora Perks Sanguine Bow — versão web</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="https://static-cdn.jtvnw.net/emoticons/v2/305012938/static/light/1.0">
+<meta charset="UTF-8">
+<title>Simulador — Dano e XP/h</title>
+<style>
+:root {
+  --bg: #0A1628;
+  --bg-surface: #0D1F3C;
+  --text: #FFFFFF;
+  --text-muted: #8BA4C2;
+  --text-dim: #5B7590;
+  --border: #1E3A5F;
+  --accent: #00C49A;
+  --blue: #3B82F6;
+  --amber: #F59E0B;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  padding: 20px;
+  font-size: 14px;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 22px; font-weight: 500; margin: 0 0 20px; }
+h3 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin: 24px 0 10px;
+}
+h4 {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.inputs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.input-card {
+  padding: 10px 12px;
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-surface);
+}
+.input-card label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+.input-card input[type=number] {
+  width: 80px;
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 0.5px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+.input-card .hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+.row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.checks { display: flex; gap: 8px; flex-wrap: wrap; }
+.cb-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.cb-wrap:hover { background: var(--bg-surface); }
+.cb-wrap.active {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-weight: 500;
+}
+.cb-wrap input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+label { font-size: 13px; color: var(--text-muted); }
+.cfg-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--bg-surface);
+  color: var(--text);
+  border: 0.5px solid var(--border);
+}
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 12px 0 20px;
+}
+.metric {
+  padding: 12px 14px;
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+}
+.metric-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.metric-value {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.1;
+}
+.metric-delta {
+  font-size: 11px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+.delta-pos { color: var(--accent); }
+.delta-neu { color: var(--text-dim); }
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.leg-item { display: flex; align-items: center; gap: 4px; }
+.leg-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.sim-status {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-left: auto;
+}
+button {
+  font-size: 12px;
+  padding: 6px 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: #0A1628;
+  cursor: pointer;
+  font-weight: 500;
+}
+button:hover { filter: brightness(1.1); }
+.compare-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.resume-table {
+  width: 100%;
+  font-size: 12px;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.resume-table th, .resume-table td {
+  padding: 8px 12px;
+  text-align: right;
+  border-bottom: 0.5px solid var(--border);
+}
+.resume-table th:first-child, .resume-table td:first-child { text-align: left; }
+.resume-table th {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.resume-table td { color: var(--text); }
+.highlight { background: rgba(0, 196, 154, 0.12); }
+.chart-container {
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+input[type="range"] { accent-color: var(--accent); }
 
-  <style>
-    /* ===== Design tokens ===== */
-    :root{
-      --topbar-h: 54px;
-
-      /* ALTURAS UNIFICADAS (alinhamento da topbar) */
-      --ui-h: 32px;        /* altura visual de TODOS os botões da topbar */
-      --ui-gap: 10px;
-
-      /* switch (usa as mesmas medidas acima) */
-      --switch-w: 54px;
-      --switch-p: 4px;
-      --knob: 24px;
-
-      /* light */
-      --bg:#f4f6f9;
-      --fg:#111;
-      --card:#ffffff;
-      --surface:#ffffff;
-      --surface-2:#fafafa;
-      --muted:#666;
-      --border:#e6e6e6;
-      --border-2:#eeeeee;
-
-      --radius-ui: 12px;
-      --pill-bg:#0f172a;
-      --pill-border:#1f2a44;
-      --pill-text:#e5e7eb;
-      --input-border:#e6e6e6;
-      --input-border-hover:#d7dbe2;
-      --focus-ring: rgba(37,99,235,.15);
-
-      --brand:#2563eb;
-      --twitch:#9146FF;
-      --kick:#53fc18;
-      --best:#16a34a;
-
-      /* switch cores */
-      --sw-on:#4f46e5;   /* Indigo (Dark) */
-      --sw-off:#b45309;  /* Orange (Light) */
-      --sw-thumb:#ffffff;
-    }
-    .theme-dark{
-      --bg:#0b1020;
-      --fg:#e7eaf2;
-      --card:#11172c;
-      --surface:#121a33;
-      --surface-2:#0f162c;
-      --muted:#a9b1c6;
-      --border:#1f2a44;
-      --border-2:#1b2749;
-
-      --pill-bg:#0b1227;
-      --pill-border:#1d2a4a;
-      --pill-text:#e7eaf2;
-      --input-border:#263251;
-      --input-border-hover:#304069;
-      --focus-ring: rgba(59,130,246,.30);
-
-      --sw-on:#4f46e5;
-      --sw-off:#b45309;
-    }
-
-    /* ===== Resets úteis ===== */
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { height:100%; }
-    body { margin:0; }
-    input, button { -webkit-appearance: none; appearance: none; }
-    /* remove setinhas dos number */
-    input[type=number]::-webkit-outer-spin-button,
-    input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
-    input[type=number]{ -moz-appearance:textfield; }
-
-    /* ===== Calculator Switcher ===== */
-    .calc-switcher {
-      position: static;
-      display: flex;
-      flex-direction: row;
-      gap: 8px;
-      justify-content: center;
-      margin: 16px 0;
-      z-index: 40;
-    }
-    .calc-btn {
-      writing-mode: horizontal-tb;
-      text-orientation: initial;
-      padding: 12px 16px;
-      background: var(--pill-bg);
-      color: var(--pill-text);
-      border: 1px solid var(--pill-border);
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 700;
-      font-size: 12px;
-      white-space: nowrap;
-      box-shadow: 0 4px 14px rgba(2,6,23,.15);
-      transition: all 0.2s ease;
-      min-height: auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      flex-direction: row;
-    }
-    .calc-btn:hover {
-      background: var(--brand);
-      border-color: var(--brand);
-    }
-    .calc-btn.active {
-      background: var(--brand);
-      border-color: var(--brand);
-      box-shadow: 0 0 0 3px rgba(37,99,235,.15);
-    }
-
-    /* ===== Topbar fixa ===== */
-    .topbar{
-      position:fixed; inset:0 0 auto 0; height:var(--topbar-h);
-      background:linear-gradient(180deg, rgba(0,0,0,.08), rgba(0,0,0,0)) , var(--card);
-      display:flex; align-items:center; gap:var(--ui-gap);
-      padding:0 16px;
-      border-bottom:1px solid var(--border);
-      z-index:50;
-    }
-    .topbar .spacer{ flex:1; }
-
-    /* Forçar alinhamento de todos elementos da topbar */
-    .topbar > *,
-    .topbar-right > *,
-    .switch-wrap > * {
-      margin:0;
-      vertical-align:middle;
-    }
-
-    /* Twitch */
-    .twitch-btn{
-      display:inline-flex; 
-      align-items:center; 
-      justify-content:center;
-      gap:8px;
-      height:32px;
-      line-height:32px;
-      padding:0 12px; 
-      border-radius:999px;
-      background:var(--twitch); 
-      color:#fff; 
-      text-decoration:none; 
-      font-weight:700;
-      box-shadow:0 6px 18px rgba(0,0,0,.15);
-      white-space:nowrap;
-      vertical-align:middle;
-    }
-
-    /* Kick */
-    .kick-btn{
-      display:inline-flex; 
-      align-items:center; 
-      justify-content:center;
-      gap:8px;
-      height:32px;
-      line-height:32px;
-      padding:0 12px; 
-      border-radius:999px;
-      background:var(--kick); 
-      color:#000; 
-      text-decoration:none; 
-      font-weight:700;
-      box-shadow:0 6px 18px rgba(0,0,0,.15);
-      white-space:nowrap;
-      vertical-align:middle;
-    }
-
-    /* container da direita: garante MESMO eixo */
-    .topbar-right{
-      display:inline-flex; 
-      align-items:center; 
-      gap:var(--ui-gap);
-      height:32px;
-      vertical-align:middle;
-    }
-
-    /* ===== Switch Dark/Light (REFATORADO) ===== */
-    .switch-wrap{ 
-      display:inline-flex; 
-      align-items:center;
-      height:32px;
-      vertical-align:middle;
-    }
-    #themeToggle{ position:absolute; inset:0; width:0; height:0; opacity:0; }
-
-    .switch{
-      position:relative;
-      width:var(--switch-w); 
-      height:32px;
-      background:var(--sw-off);
-      border-radius:999px;
-      display:inline-flex; 
-      align-items:center;
-      padding:var(--switch-p);
-      cursor:pointer;
-      box-shadow:0 4px 14px rgba(0,0,0,.15) inset, 0 2px 6px rgba(0,0,0,.12);
-      transition:background .2s ease;
-      border:none;
-      vertical-align:middle;
-    }
-    .switch .thumb{
-      position:absolute; top:var(--switch-p); left:var(--switch-p);
-      width:var(--knob); height:var(--knob); background:var(--sw-thumb); border-radius:50%;
-      display:grid; place-items:center;
-      box-shadow:0 2px 6px rgba(0,0,0,.25);
-      transition:transform .25s cubic-bezier(.2,.8,.2,1);
-    }
-    .icon-sun svg, .icon-moon svg{ width:16px; height:16px; fill:#FFD54A; } /* sol/lua amarelos */
-    #themeToggle:checked + .switch{ background:var(--sw-on); }
-    /* deslocamento preciso: largura − knob − 2*padding */
-    #themeToggle:checked + .switch .thumb{
-      transform: translateX(calc(var(--switch-w) - var(--knob) - (var(--switch-p) * 2)));
-    }
-    #themeToggle:checked + .switch .icon-sun{ display:none; }
-    #themeToggle:not(:checked) + .switch .icon-moon{ display:none; }
-
-    /* ===== Seletor de idioma ===== */
-    .lang-switch{ 
-      position:relative; 
-      display:inline-flex; 
-      align-items:center; 
-      height:32px;
-      vertical-align:middle;
-    }
-    .lang-btn{
-      display:inline-flex; 
-      align-items:center; 
-      justify-content:center;
-      gap:8px;
-      height:32px;
-      line-height:32px;
-      padding:0 10px;
-      border-radius:999px;
-      border:1px solid var(--pill-border);
-      background:var(--pill-bg); 
-      color:var(--pill-text);
-      font-weight:800; 
-      box-shadow:0 4px 14px rgba(2,6,23,.15);
-      cursor:pointer;
-      vertical-align:middle;
-    }
-    .lang-btn .code{ font-size:12px; letter-spacing:.2px; }
-    .flag-img{ width:20px; height:14px; border-radius:4px; display:inline-block; vertical-align:middle; box-shadow:0 0 0 1px rgba(255,255,255,.25) inset; }
-    .lang-menu{
-      position:absolute; top:110%; right:0; z-index:30;
-      background:var(--pill-bg); color:var(--pill-text);
-      border:1px solid var(--pill-border);
-      border-radius:14px; padding:6px; min-width:150px;
-      box-shadow:0 10px 22px rgba(0,0,0,.25);
-    }
-    .lang-opt{ display:flex; align-items:center; gap:8px; width:100%; background:transparent; color:inherit; border:0; cursor:pointer; padding:8px 10px; border-radius:10px; font-weight:800; font-size:13px; }
-    .lang-opt:hover{ background:#1f2937; }
-
-    /* ===== Base ===== */
-    body { font-family: Inter, Arial, sans-serif; background:var(--bg); color:var(--fg); padding-top:calc(var(--topbar-h) + 24px); min-height:100vh; }
-    .app { max-width:min(1280px, 96vw); margin:0 auto 16px; }
-
-    .card { background:var(--card); padding:14px; border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,0.06); border:1px solid var(--border); }
-    .app h2{ margin:8px 8px 16px; text-align:center; } /* título centralizado */
-
-    /* ===== Layout principal (desktop: 2 colunas, altura da viewport) ===== */
-    .desktop-grid{ display:grid; gap:16px; }
-    @media (min-width: 1100px){
-      .desktop-grid{
-        grid-template-columns: 1fr 1fr;
-        height: calc(100vh - var(--topbar-h) - 56px);
-      }
-      .pane{ overflow:auto; padding-right:2px; }
-    }
-
-    .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
-    @media (max-width: 720px){ .grid { grid-template-columns: 1fr; } }
-
-    label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
-
-    /* Inputs */
-    input[type=number]{
-      width:100%;
-      height:42px;
-      padding:10px 12px;
-      border-radius:var(--radius-ui);
-      border:1px solid var(--input-border);
-      background:var(--surface);
-      color:var(--fg);
-      outline:none;
-      transition:border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
-      background-clip:padding-box;
-      font-size:15px;
-    }
-    input[type=number]:hover{ border-color:var(--input-border-hover); }
-    input[type=number]:focus{
-      border-color:#93c5fd;
-      box-shadow:0 0 0 3px var(--focus-ring);
-    }
-
-    .full { grid-column: 1 / -1; }
-    .btn { padding:10px 14px; background:var(--brand); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600; }
-    .btn.gray { background:#6b7280; }
-    .toolbar { display:flex; gap:8px; flex-wrap:wrap; }
-
-    /* Resultados */
-    .results-group { margin-top:14px; padding:12px; background:var(--surface-2); border:1px solid var(--border); border-radius:14px; }
-    .results-group h3 { margin:0 0 10px; font-size:16px; text-align:center; }
-    .result { background:var(--surface); padding:12px; border-radius:var(--radius-ui); border:1px solid var(--border-2); font-weight:600; }
-    .muted { color:var(--muted); font-weight:500; }
-
-    /* Perks */
-    .perk-list{ list-style:none; padding:0; margin:0; display:grid; gap:12px; }
-    .perk-card{
-      position:relative;
-      display:grid;
-      grid-template-columns: 1fr auto;
-      align-items:center;
-      gap:14px;
-      background:var(--surface);
-      border:1px solid var(--border-2);
-      border-radius:var(--radius-ui);
-      padding:12px 14px;
-      transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
-    }
-    .perk-card:hover{ background:rgba(59,130,246,.04); border-color:#dfe6ff; }
-    .theme-dark .perk-card:hover{ background:rgba(59,130,246,.08); border-color:#2e3f6b; }
-    .perk-card__name{ color:var(--fg); font-weight:600; font-size:clamp(.92rem, 1.6vw, 1rem); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .perk-card__value{ display:flex; align-items:flex-end; gap:4px; justify-self:end; text-align:right; line-height:1; }
-    .perk-card__num{ font-size:clamp(1rem, 2.2vw, 1.25rem); font-weight:800; color:var(--fg); font-variant-numeric: tabular-nums lining-nums; }
-    .perk-card.is-best{ border:2px solid var(--best); box-shadow:0 0 0 3px rgba(22,163,74,.15); }
-    .perk-card__badge{ display:none; position:absolute; top:-10px; right:10px; background:var(--best); color:#062b1e; font-weight:800; padding:2px 8px; border-radius:999px; font-size:.72rem; box-shadow:0 6px 16px rgba(16,185,129,.35); }
-    .perk-card.is-best .perk-card__badge{ display:inline-block; }
-
-    /* Hidden elements */
-    .hidden { display: none !important; }
-
-    /* Responsivo topo (mantém alinhamento) */
-    @media (max-width: 640px){
-      :root{ --ui-h: 28px; --switch-w: 48px; --switch-p: 3px; --knob: 22px; --topbar-h: 48px; }
-      .topbar{ gap:6px; padding: 0 10px; min-height: var(--topbar-h); }
-      body { padding-top: calc(var(--topbar-h) + 20px); min-height: 100vh; }
-      .twitch-btn, .kick-btn { height: 28px; line-height: 28px; padding: 0 8px; font-size: 12px; }
-      .twitch-btn::before { content: "🎮 Twitch"; }
-      .twitch-btn span { display: none; }
-      .kick-btn::before { content: "⚡ Kick"; }
-      .kick-btn span { display: none; }
-      .topbar-right { height: 28px; }
-      .switch-wrap { height: 28px; }
-      .switch { height: 28px; }
-      .lang-switch { height: 28px; }
-      .lang-btn { height: 28px; line-height: 28px; padding: 0 8px; }
-      .lang-btn .code { font-size: 11px; }
-      .flag-img { width: 16px; height: 12px; }
-    }
-    
-    @media (max-width: 480px){
-      :root{ --topbar-h: 44px; }
-      body { padding-top: calc(var(--topbar-h) + 16px); }
-      .topbar { padding: 0 8px; gap: 4px; }
-      .twitch-btn, .kick-btn { font-size: 11px; padding: 0 6px; }
-      .lang-btn { padding: 0 6px; }
-    }
-
-    @media (max-width: 1200px) {
-      body { padding-left: 0; }
-    }
-    @media (min-width: 1200px) {
-      body { padding-left: 0; }
-    }
-  </style>
+.lang-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 0;
+  font-size: 12px;
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  user-select: none;
+}
+.lang-toggle button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: 0;
+}
+.lang-toggle button:hover {
+  background: var(--bg-surface);
+  color: var(--text);
+}
+.lang-toggle button.active {
+  background: var(--accent);
+  color: #0A1628;
+}
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.header-row h1 { margin: 0; }
+</style>
 </head>
 <body>
-  <!-- ===== Calculator Switcher ===== -->
-  <div class="calc-switcher">
-    <button class="calc-btn active" data-calc="sanguine">🏹 Sanguine Bow</button>
-    <button class="calc-btn" data-calc="knight">🛡️ Elite Knight Sanguines</button>
-  </div>
+<div class="container">
 
-  <!-- ===== Topbar ===== -->
-<div class="topbar">
-  <a class="twitch-btn" href="https://www.twitch.tv/teuzinfps" target="_blank" rel="noopener">
-    <span>🎮 Twitch.tv/teuzinfps</span>
-  </a>
-  
-  <a class="kick-btn" href="https://kick.com/teuzinfps" target="_blank" rel="noopener">
-    <span>⚡ Kick.com/teuzinfps</span>
-  </a>
-
-  <div class="spacer"></div>
-
-  <!-- AGRUPADOS para alinhamento perfeito -->
-  <div class="topbar-right">
-    <div class="switch-wrap">
-      <input id="themeToggle" type="checkbox" aria-label="Alternar tema (Dark/Light)">
-      <label for="themeToggle" class="switch">
-        <span class="thumb">
-          <span class="icon-sun" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><g><rect x="11" y="1" width="2" height="4"/><rect x="11" y="19" width="2" height="4"/><rect x="1" y="11" width="4" height="2"/><rect x="19" y="11" width="4" height="2"/></g><g transform="rotate(45 12 12)"><rect x="11" y="1" width="2" height="4"/><rect x="11" y="19" width="2" height="4"/><rect x="1" y="11" width="4" height="2"/><rect x="19" y="11" width="4" height="2"/></g></svg>
-          </span>
-          <span class="icon-moon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 1 0 9.8 9.8z"/></svg>
-          </span>
-        </span>
-      </label>
-    </div>
-
-    <div class="lang-switch" id="langSwitch">
-      <button class="lang-btn" id="langCurrent" aria-haspopup="menu" aria-expanded="false">
-        <img class="flag-img" id="langFlag" alt="">
-        <span class="code" id="langCode">PT-BR</span>
-      </button>
-      <div class="lang-menu" id="langMenu" hidden role="menu" aria-label="Selecionar idioma">
-        <button class="lang-opt" data-lang="pt" role="menuitem">
-          <img class="flag-img" alt="">
-          <span>PT-BR</span>
-        </button>
-        <button class="lang-opt" data-lang="en" role="menuitem">
-          <img class="flag-img" alt="">
-          <span>ENG</span>
-        </button>
-      </div>
-    </div>
+<div class="header-row">
+  <h1 data-i18n="title">Simulador — Dano e XP/h em hunts de Tibia</h1>
+  <div class="lang-toggle">
+    <button id="langPt" class="active">PT</button>
+    <button id="langEn">EN</button>
   </div>
 </div>
 
-
-  <!-- ===== Conteúdo ===== -->
-  <div class="app">
-    <div class="card">
-      <h2 id="mainTitle">Calculadora Perks Sanguine Bow</h2>
-
-      <div class="desktop-grid">
-        <!-- Pane esquerda: inputs -->
-        <section class="pane">
-          <div class="grid">
-            <div><label id="levelLabel">Level</label><input id="level" type="number" value="1500"></div>
-            <div><label id="magicLevelLabel">Magic Level</label><input id="magicLevel" type="number" value="49"></div>
-            <div><label id="distanceLabel">Distance</label><input id="distance" type="number" value="150"></div>
-            <div><label id="pontosWheelLabel">Pontos Dmg/Healing Roda</label><input id="pontosWheel" type="number" value="33"></div>
-            <div><label id="chanceCritLabel">Chance de crítico (%)</label><input id="chanceCrit" type="number" step="0.01" value="12"></div>
-            <div><label id="chanceLegsLabel">Chance ativação legs (%)</label><input id="chanceLegs" type="number" step="0.01" value="0.44"></div>
-            <div><label id="baseMasSanLabel">Base mas san (roda + gemas) (%)</label><input id="baseMasSan" type="number" step="0.1" value="8.5"></div>
-            <div><label id="flechasHoraLabel">Flechas/hora</label><input id="flechasHora" type="number" value="1600"></div>
-            <div id="holyWeakDiv"><label id="holyWeakLabel">Dano sofrido por Sagrado (%)</label><input id="holyWeak" type="number" step="1" value="100"></div>
-            <div id="physWeakDiv"><label id="physWeakLabel">Dano sofrido por Físico (%)</label><input id="physWeak" type="number" step="1" value="100"></div>
-
-            <div class="full toolbar">
-              <button class="btn" id="shareBtn">Compartilhar</button>
-              <button class="btn gray" id="clearBtn">Limpar</button>
-              <span class="muted" id="statusText"></span>
-            </div>
-          </div>
-        </section>
-
-        <!-- Pane direita: resultados -->
-        <section class="pane">
-          <div class="results-group" id="groupResumo">
-            <h3>Resumo</h3>
-            <div class="grid">
-              <div class="result"><div>Level dmg: <span id="outF14">--</span></div></div>
-              <div class="result"><div>Base dmg: <span id="outF15">--</span></div></div>
-              <div class="result"><div>Ajusted Critical Chance: <span id="outF16">--</span></div></div>
-              <div class="result"><div>Transcendence avatar 3 Bonus: <span id="outF17">--</span></div></div>
-            </div>
-          </div>
-
-          <div class="results-group" id="groupStage4">
-            <h3>Stage 4</h3>
-            <ul class="perk-list">
-              <li class="perk-card" id="cardF20">
-                <div class="perk-card__name" id="labelF20">+4% base damage para Divine Caldera</div>
-                <div class="perk-card__value"><span class="perk-card__num" id="outF20">--</span></div>
-                <div class="perk-card__badge">Melhor 🏆</div>
-              </li>
-              <li class="perk-card" id="cardF21">
-                <div class="perk-card__name" id="labelF21">+20% critical extra damage para Divine Caldera</div>
-                <div class="perk-card__value"><span class="perk-card__num" id="outF21">--</span></div>
-                <div class="perk-card__badge">Melhor 🏆</div>
-              </li>
-            </ul>
-          </div>
-
-          <div class="results-group" id="groupStage5">
-            <h3>Stage 5</h3>
-            <ul class="perk-list">
-              <li class="perk-card" id="cardF25">
-                <div class="perk-card__name" id="labelF25">+10% Distance Fighting p/ spells</div>
-                <div class="perk-card__value"><span class="perk-card__num" id="outF25">--</span></div>
-                <div class="perk-card__badge">Melhor 🏆</div>
-              </li>
-              <li class="perk-card" id="cardF24">
-                <div class="perk-card__name" id="labelF24">+3% critical hit chance para Divine Caldera</div>
-                <div class="perk-card__value"><span class="perk-card__num" id="outF24">--</span></div>
-                <div class="perk-card__badge">Melhor 🏆</div>
-              </li>
-              <li class="perk-card" id="cardF26">
-                <div class="perk-card__name" id="labelF26">+2 attack</div>
-                <div class="perk-card__value"><span class="perk-card__num" id="outF26">--</span></div>
-                <div class="perk-card__badge">Melhor 🏆</div>
-              </li>
-            </ul>
-          </div>
-        </section>
-      </div>
-    </div>
+<h4 data-i18n="section_mob">parâmetros do mob e da box</h4>
+<div class="inputs-grid">
+  <div class="input-card">
+    <label data-i18n="label_mobHp">HP do mob</label>
+    <input type="number" id="mobHp" value="8000" min="100" max="99999" step="100">
+    <div class="hint" data-i18n="hint_mobHp">cada mob tem esse HP</div>
   </div>
+  <div class="input-card">
+    <label data-i18n="label_mobXp">XP do mob</label>
+    <input type="number" id="mobXp" value="10000" min="1" max="999999" step="100">
+    <div class="hint" data-i18n="hint_mobXp">XP por mob morto</div>
+  </div>
+  <div class="input-card">
+    <label data-i18n="label_boxSize">tamanho da box</label>
+    <input type="number" id="boxSize" value="8" min="1" max="20" step="1">
+    <div class="hint" data-i18n="hint_boxSize">mobs por spawn</div>
+  </div>
+  <div class="input-card">
+    <label data-i18n="label_exitThreshold">ponto de saída</label>
+    <input type="number" id="exitThreshold" value="3" min="1" max="19" step="1">
+    <div class="hint" data-i18n="hint_exitThreshold">inteligência: sai com ≤ N vivos</div>
+  </div>
+</div>
 
-  <script>
-    /* ===== Global State ===== */
-    let currentCalculator = 'sanguine'; // 'sanguine' or 'knight'
+<h4 data-i18n="section_damage">parâmetros de dano</h4>
+<div class="inputs-grid">
+  <div class="input-card"><label data-i18n="label_dmg1">dano ataque 1</label><input type="number" id="dmg1" value="500" min="1" max="9999" step="1"><div class="hint" data-i18n="hint_dmg1">turno 1 do ciclo</div></div>
+  <div class="input-card"><label data-i18n="label_dmg2">dano ataque 2</label><input type="number" id="dmg2" value="600" min="1" max="9999" step="1"><div class="hint" data-i18n="hint_dmg2">turno 2 do ciclo</div></div>
+  <div class="input-card"><label data-i18n="label_dmg3">dano ataque 3</label><input type="number" id="dmg3" value="1000" min="1" max="9999" step="1"><div class="hint" data-i18n="hint_dmg3">turno 3 do ciclo</div></div>
+  <div class="input-card"><label data-i18n="label_charmDmg">dano do charm</label><input type="number" id="charmDmg" value="500" min="1" max="9999" step="1"><div class="hint" data-i18n="hint_charmDmg">dano por ativação</div></div>
+  <div class="input-card"><label data-i18n="label_critBoost">aumento crítico (%)</label><input type="number" id="critBoost" value="44" min="0" max="500" step="1"><div class="hint"><span data-i18n="hint_critFinal_prefix">final: 1,72 +</span> <span id="critBoostHint">0,44</span> = <span id="critFinal">2,16</span>x</div></div>
+</div>
 
-    /* ===== Flags em SVG (data URI) ===== */
-    function svgDataUri(svg){ return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg.trim()); }
-    const FLAG_SVG = {
-      pt: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16">
-            <rect width="24" height="16" rx="2.5" fill="#009b3a"/>
-            <polygon points="12,2 22,8 12,14 2,8" fill="#ffdf00"/>
-            <circle cx="12" cy="8" r="4" fill="#002776"/>
-          </svg>`,
-      en: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16">
-            <rect width="24" height="16" rx="2.5" fill="#012169"/>
-            <path d="M0,0 24,16 M24,0 0,16" stroke="#fff" stroke-width="3"/>
-            <path d="M0,0 24,16 M24,0 0,16" stroke="#C8102E" stroke-width="2"/>
-            <path d="M12,0 v16 M0,8 h24" stroke="#fff" stroke-width="5"/>
-            <path d="M12,0 v16 M0,8 h24" stroke="#C8102E" stroke-width="3"/>
-          </svg>`
-    };
-    function setFlagImages(lang){
-      const current = document.getElementById('langFlag');
-      if(current) current.src = svgDataUri(FLAG_SVG[lang]);
-      const menu = document.getElementById('langMenu');
-      const ptImg = menu.querySelector('[data-lang="pt"] .flag-img');
-      const enImg = menu.querySelector('[data-lang="en"] .flag-img');
-      if(ptImg) ptImg.src = svgDataUri(FLAG_SVG.pt);
-      if(enImg) enImg.src = svgDataUri(FLAG_SVG.en);
+<h4 data-i18n="section_config">configuração ativa</h4>
+<div class="row">
+  <div class="checks">
+    <label class="cb-wrap" id="wrap-charm"><input type="checkbox" id="cb-charm"> <span data-i18n="cb_charm">charm</span></label>
+    <label class="cb-wrap" id="wrap-crit"><input type="checkbox" id="cb-crit"> <span data-i18n="cb_crit">crítico aumentado</span></label>
+    <label class="cb-wrap" id="wrap-int"><input type="checkbox" id="cb-int"> <span data-i18n="cb_int">inteligência</span></label>
+    <label class="cb-wrap" id="wrap-var"><input type="checkbox" id="cb-var"> <span data-i18n="cb_var">dano variável (±20%)</span></label>
+  </div>
+  <span class="cfg-badge" id="cfgLabel">Baseline</span>
+  <button id="btnRun" data-i18n="btn_run">recalcular</button>
+  <span class="sim-status" id="simStatus" data-i18n="status_ready">pronto</span>
+</div>
+
+<h4 data-i18n="section_metrics">métricas do nível selecionado</h4>
+<div class="metrics-grid">
+  <div class="metric">
+    <div class="metric-label" data-i18n="met_turns">turnos médios por box</div>
+    <div class="metric-value" id="metTurns">—</div>
+    <div class="metric-delta" id="metTurnsDelta">—</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label" data-i18n="met_xph">XP/h estimado</div>
+    <div class="metric-value" id="metXph">—</div>
+    <div class="metric-delta" id="metXphDelta">—</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label" data-i18n="met_prob">P(box ≤ 10 turnos)</div>
+    <div class="metric-value" id="metProb">—</div>
+    <div class="metric-delta" id="metProbDelta">—</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label" data-i18n="met_gain100">ganho em 100h de hunt</div>
+    <div class="metric-value" id="metGain100">—</div>
+    <div class="metric-delta" data-i18n="vs_base">vs nível +0</div>
+  </div>
+</div>
+
+<div class="row">
+  <label data-i18n="label_slider">nível de dano bônus</label>
+  <input type="range" id="sliderDmg" min="0" max="20" value="0" step="1" style="width:180px">
+  <span id="lblDmg" style="font-size:14px;font-weight:500;min-width:50px">+0</span>
+</div>
+
+<h3 data-i18n="h_compare">distribuição de turnos — comparar dois níveis</h3>
+<div class="compare-row">
+  <label data-i18n="label_compare">comparar</label>
+  <input type="range" id="sliderA" min="0" max="20" value="0" step="1" style="width:140px">
+  <span id="lblA" style="font-size:13px;font-weight:500;min-width:36px;color:#3B82F6">+0</span>
+  <label style="margin-left:8px" data-i18n="label_with">com</label>
+  <input type="range" id="sliderB" min="0" max="20" value="20" step="1" style="width:140px">
+  <span id="lblB" style="font-size:13px;font-weight:500;min-width:36px;color:#F59E0B">+20</span>
+</div>
+<div class="chart-container">
+  <div style="position:relative;height:220px"><canvas id="compareChart"></canvas></div>
+</div>
+
+<h3 data-i18n="h_evol">evolução dos turnos médios e XP/h por nível</h3>
+<div class="chart-container">
+  <div style="position:relative;height:220px"><canvas id="evolChart"></canvas></div>
+</div>
+
+<h3 data-i18n="h_curves">curvas de distribuição — todos os níveis</h3>
+<div class="legend" id="legendCurve"></div>
+<div class="chart-container">
+  <div style="position:relative;height:260px"><canvas id="curveChart"></canvas></div>
+</div>
+
+<h3 data-i18n="h_resume">resumo — ganho a cada +5 de dano</h3>
+<div style="overflow-x:auto">
+  <table class="resume-table" id="resumeTable"></table>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ========== i18n ==========
+const I18N = {
+  pt: {
+    title: 'Simulador — Dano e XP/h em hunts de Tibia',
+    section_mob: 'parâmetros do mob e da box',
+    section_damage: 'parâmetros de dano',
+    section_config: 'configuração ativa',
+    section_metrics: 'métricas do nível selecionado',
+
+    label_mobHp: 'HP do mob',
+    hint_mobHp: 'cada mob tem esse HP',
+    label_mobXp: 'XP do mob',
+    hint_mobXp: 'XP por mob morto',
+    label_boxSize: 'tamanho da box',
+    hint_boxSize: 'mobs por spawn',
+    label_exitThreshold: 'ponto de saída',
+    hint_exitThreshold: 'inteligência: sai com ≤ N vivos',
+
+    label_dmg1: 'dano ataque 1',
+    hint_dmg1: 'turno 1 do ciclo',
+    label_dmg2: 'dano ataque 2',
+    hint_dmg2: 'turno 2 do ciclo',
+    label_dmg3: 'dano ataque 3',
+    hint_dmg3: 'turno 3 do ciclo',
+    label_charmDmg: 'dano do charm',
+    hint_charmDmg: 'dano por ativação',
+    label_critBoost: 'aumento crítico (%)',
+    hint_critFinal_prefix: 'final: 1,72 +',
+
+    cb_charm: 'charm',
+    cb_crit: 'crítico aumentado',
+    cb_int: 'inteligência',
+    cb_var: 'dano variável (±20%)',
+
+    btn_run: 'recalcular',
+    status_ready: 'pronto',
+    status_simulating: 'simulando {h}h totais (pode levar alguns segundos)...',
+    status_done: '{n} × {h}h × 21 níveis = {total}h · {elapsed}s',
+
+    met_turns: 'turnos médios por box',
+    met_xph: 'XP/h estimado',
+    met_prob: 'P(box ≤ 10 turnos)',
+    met_gain100: 'ganho em 100h de hunt',
+    vs_base: 'vs nível +0',
+    base_level: 'nível base',
+
+    label_slider: 'nível de dano bônus',
+    h_compare: 'distribuição de turnos — comparar dois níveis',
+    label_compare: 'comparar',
+    label_with: 'com',
+    h_evol: 'evolução dos turnos médios e XP/h por nível',
+    h_curves: 'curvas de distribuição — todos os níveis',
+    h_resume: 'resumo — ganho a cada +5 de dano',
+
+    table_level: 'nível',
+    table_turns: 'turnos médios',
+    table_xph: 'XP/h',
+    table_delta: 'Δ XP/h vs +0',
+    table_prob: 'P(≤10 turnos)',
+    table_gain: 'ganho em 100h',
+
+    chart_turns_label: 'turnos médios',
+    chart_xph_label: 'XP/h',
+    chart_turns_axis: 'turnos',
+    chart_turns_per_box: 'turnos por box',
+    chart_pct_boxes: '% das boxes',
+
+    cfg: {
+      '0000': 'Baseline', '0001': 'Baseline + Var',
+      '1000': 'Charm', '1001': 'Charm + Var',
+      '0100': 'Crítico aumentado', '0101': 'Crítico aumentado + Var',
+      '0010': 'Inteligência', '0011': 'Inteligência + Var',
+      '1100': 'Charm + Crit', '1101': 'Charm + Crit + Var',
+      '1010': 'Charm + Int', '1011': 'Charm + Int + Var',
+      '0110': 'Crit + Int', '0111': 'Crit + Int + Var',
+      '1110': 'Charm + Crit + Int', '1111': 'Charm + Crit + Int + Var'
+    }
+  },
+  en: {
+    title: 'Simulator — Damage and XP/h in Tibia hunts',
+    section_mob: 'mob and box parameters',
+    section_damage: 'damage parameters',
+    section_config: 'active configuration',
+    section_metrics: 'metrics for selected level',
+
+    label_mobHp: 'mob HP',
+    hint_mobHp: 'each mob has this HP',
+    label_mobXp: 'mob XP',
+    hint_mobXp: 'XP per mob killed',
+    label_boxSize: 'box size',
+    hint_boxSize: 'mobs per spawn',
+    label_exitThreshold: 'exit threshold',
+    hint_exitThreshold: 'intelligence: leaves with ≤ N alive',
+
+    label_dmg1: 'attack damage 1',
+    hint_dmg1: 'turn 1 of cycle',
+    label_dmg2: 'attack damage 2',
+    hint_dmg2: 'turn 2 of cycle',
+    label_dmg3: 'attack damage 3',
+    hint_dmg3: 'turn 3 of cycle',
+    label_charmDmg: 'charm damage',
+    hint_charmDmg: 'damage per proc',
+    label_critBoost: 'crit boost (%)',
+    hint_critFinal_prefix: 'final: 1.72 +',
+
+    cb_charm: 'charm',
+    cb_crit: 'boosted crit',
+    cb_int: 'intelligence',
+    cb_var: 'damage variance (±20%)',
+
+    btn_run: 'recalculate',
+    status_ready: 'ready',
+    status_simulating: 'simulating {h}h total (may take a few seconds)...',
+    status_done: '{n} × {h}h × 21 levels = {total}h · {elapsed}s',
+
+    met_turns: 'average turns per box',
+    met_xph: 'estimated XP/h',
+    met_prob: 'P(box ≤ 10 turns)',
+    met_gain100: 'gain over 100h of hunting',
+    vs_base: 'vs level +0',
+    base_level: 'base level',
+
+    label_slider: 'damage bonus level',
+    h_compare: 'turn distribution — compare two levels',
+    label_compare: 'compare',
+    label_with: 'with',
+    h_evol: 'evolution of average turns and XP/h per level',
+    h_curves: 'distribution curves — all levels',
+    h_resume: 'summary — gain every +5 damage',
+
+    table_level: 'level',
+    table_turns: 'avg turns',
+    table_xph: 'XP/h',
+    table_delta: 'Δ XP/h vs +0',
+    table_prob: 'P(≤10 turns)',
+    table_gain: 'gain over 100h',
+
+    chart_turns_label: 'average turns',
+    chart_xph_label: 'XP/h',
+    chart_turns_axis: 'turns',
+    chart_turns_per_box: 'turns per box',
+    chart_pct_boxes: '% of boxes',
+
+    cfg: {
+      '0000': 'Baseline', '0001': 'Baseline + Var',
+      '1000': 'Charm', '1001': 'Charm + Var',
+      '0100': 'Boosted crit', '0101': 'Boosted crit + Var',
+      '0010': 'Intelligence', '0011': 'Intelligence + Var',
+      '1100': 'Charm + Crit', '1101': 'Charm + Crit + Var',
+      '1010': 'Charm + Int', '1011': 'Charm + Int + Var',
+      '0110': 'Crit + Int', '0111': 'Crit + Int + Var',
+      '1110': 'Charm + Crit + Int', '1111': 'Charm + Crit + Int + Var'
+    }
+  }
+};
+
+let LANG = 'pt';
+const t = key => (I18N[LANG] && I18N[LANG][key]) || key;
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+  document.documentElement.lang = LANG === 'pt' ? 'pt-BR' : 'en';
+  document.title = t('title');
+  document.getElementById('langPt').classList.toggle('active', LANG === 'pt');
+  document.getElementById('langEn').classList.toggle('active', LANG === 'en');
+  // re-render dinâmicos
+  if (typeof updateUI === 'function') updateUI();
+  if (typeof drawAll === 'function' && typeof cache !== 'undefined' && cache) drawAll();
+  // atualizar status se já tiver sido calculado
+  const st = document.getElementById('simStatus');
+  if (st && typeof cache !== 'undefined' && cache && typeof N_SESSIONS !== 'undefined') {
+    const totalHours = N_SESSIONS * SESSION_SECONDS / 3600 * 21;
+    const locale = LANG === 'pt' ? 'pt-BR' : 'en-US';
+    st.textContent = t('status_done')
+      .replace('{n}', N_SESSIONS)
+      .replace('{h}', SESSION_SECONDS / 3600)
+      .replace('{total}', totalHours.toLocaleString(locale))
+      .replace('{elapsed}', '—');
+  }
+}
+
+document.getElementById('langPt').addEventListener('click', () => { LANG = 'pt'; applyI18n(); });
+document.getElementById('langEn').addEventListener('click', () => { LANG = 'en'; applyI18n(); });
+</script>
+
+<script>
+const CHARM_RATE = 0.1;
+const CRIT_RATE = 0.1;
+const CRIT_BASE = 1.72;
+const TURN_DURATION = 2;
+const BOX_CHANGE_TIME = 3;
+const SPAWN_DURATION = 6;
+const SPAWN_CURVE = 2.4;
+const SESSION_SECONDS = 3600 * 10;  // 10h por sessão
+const N_SESSIONS = 12;              // 12 × 10h = 120h por nível (2520h totais)
+
+class PRNG {
+  constructor(seed) { this.s = seed >>> 0 || 1; }
+  next() {
+    this.s = (this.s * 1664525 + 1013904223) >>> 0;
+    return this.s / 4294967296;
+  }
+}
+
+function pPresent(elapsed) {
+  if (elapsed <= 0) return 0;
+  if (elapsed >= SPAWN_DURATION) return 1;
+  return 1 - Math.pow(1 - elapsed / SPAWN_DURATION, SPAWN_CURVE);
+}
+
+function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags, seconds) {
+  // Aleatoriedade total: uma PRNG única consumida em ordem, como o jogo real.
+  // Nenhuma manipulação para manter sequências entre níveis de dano.
+  const rng = new PRNG(seed);
+
+  let timeElapsed = 0;
+  let ac = 0;
+  let totalKills = 0;
+  let boxCount = 0;
+  let turnsThisBox = 0;
+  const turnCounts = [];
+
+  let mobHps = [];
+  let spawning = [];
+  let spawnTimer = 0;
+
+  for (let i = 0; i < boxSize; i++) mobHps.push(mobHp);
+
+  while (timeElapsed < seconds) {
+    const aliveTotal = mobHps.length + spawning.length;
+
+    if (flags.intel && aliveTotal <= exitThreshold && spawning.length === 0) {
+      spawning = new Array(boxSize).fill(mobHp);
+      spawnTimer = 0;
+      turnCounts.push(turnsThisBox);
+      turnsThisBox = 0;
+      boxCount++;
+      continue;
     }
 
-    /* ===== Utils ===== */
-    function getNum(id){ const el=document.getElementById(id); const s=String(el.value).replace(',', '.'); const n=Number(s); return Number.isFinite(n)?n:0; }
-    function getPctFraction(id){ let s=String(document.getElementById(id).value).trim().replace(',', '.'); if(s.endsWith('%')) s=s.slice(0,-1); const n=Number(s); return Number.isFinite(n)?n/100:0; }
-    function getPctMultiplier(id){ let s=String(document.getElementById(id).value).trim().replace(',', '.'); if(s.endsWith('%')) s=s.slice(0,-1); const n=Number(s); return Number.isFinite(n)?n/100:0; }
-    function setText(id, text){ document.getElementById(id).innerText = text; }
-    function clearHighlights(){ ['cardF20','cardF21','cardF24','cardF25','cardF26'].forEach(id=>document.getElementById(id).classList.remove('is-best')); }
-    function currentLang(){ try{ const saved=localStorage.getItem("calc_lang"); if(saved) return saved; }catch(e){} return "pt"; }
-    function numberFormatter(){ const lang=currentLang()==='en' ? 'en-US' : 'pt-BR'; return new Intl.NumberFormat(lang,{minimumFractionDigits:2, maximumFractionDigits:3}); }
-    const fmtCache={ get(){ this._fmt=this._fmt||numberFormatter(); return this._fmt; }, reset(){ this._fmt=null; } };
+    if (aliveTotal === 0) {
+      turnCounts.push(turnsThisBox);
+      turnsThisBox = 0;
+      boxCount++;
+      mobHps = [];
+      for (let i = 0; i < boxSize; i++) mobHps.push(mobHp);
+      spawning = [];
+      timeElapsed += BOX_CHANGE_TIME;
+      if (timeElapsed >= seconds) break;
+      continue;
+    }
 
-    /* ===== Calculator Switching ===== */
-    function switchCalculator(type) {
-      currentCalculator = type;
-      
-      // Update active button
-      document.querySelectorAll('.calc-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.calc === type);
-      });
+    turnsThisBox++;
+    timeElapsed += TURN_DURATION;
+    if (timeElapsed > seconds) break;
 
-      // Show/hide elements based on calculator type
-      const holyDiv = document.getElementById('holyWeakDiv');
-      const physDiv = document.getElementById('physWeakDiv');
-      
-      if (type === 'knight') {
-        holyDiv.classList.add('hidden');
-        physDiv.classList.add('hidden');
-      } else {
-        holyDiv.classList.remove('hidden');
-        physDiv.classList.remove('hidden');
+    if (spawning.length > 0) {
+      spawnTimer += TURN_DURATION;
+      const pNow = pPresent(spawnTimer);
+      const pPrev = pPresent(spawnTimer - TURN_DURATION);
+      const pCond = pPrev >= 1 ? 1 : (pNow - pPrev) / (1 - pPrev);
+      const stillSpawning = [];
+      for (const hp of spawning) {
+        if (rng.next() < pCond) mobHps.push(hp);
+        else stillSpawning.push(hp);
       }
-
-      // Apply language and recalculate
-      applyLang(currentLang());
-      rodarCalculadora();
-      
-      try { 
-        localStorage.setItem('calc_type', type); 
-      } catch(e) {}
+      spawning = stillSpawning;
     }
 
-    /* ===== Fórmulas Sanguine Bow ===== */
-    function calcF14(F2){
-      if (F2 < 500)  return Math.floor(F2/5);
-      if (F2 < 1100) return Math.floor((F2-500)/6 + 100);
-      if (F2 < 1800) return Math.floor((F2-1100)/7 + 200);
-      if (F2 < 2600) return Math.floor((F2-1800)/8 + 300);
-      return Math.floor((F2-2600)/9 + 400);
-    }
-    
-    function calcF15_sanguine(F3,F8){ return Math.floor(F3*140*(1+F8)/25 + 140*(1+F8)/4); }
-    function calcF15_knight(F3,F4,F8){ return Math.round(F3*F4/1000*92*(1+F8)+92*(1+F8)/4); }
-    
-    function calcF16_sanguine(F9,F7,F6){ 
-      const prod = F6*2*F9;
-      if(Math.floor(prod) < prod){
-        return F6;
+    if (mobHps.length === 0) { ac++; continue; }
+
+    if (flags.charm) {
+      for (let i = 0; i < mobHps.length; i++) {
+        if (mobHps[i] > 0 && rng.next() < CHARM_RATE) {
+          mobHps[i] -= charmDmg;
+          if (mobHps[i] < 0) mobHps[i] = 0;
+        }
       }
-      const p1 = Math.floor(F9*F7*6);
-      const p2 = Math.floor(((F9*2)-p1)*F6);
-      return (p1+p2)/(F9*2);
     }
-    
-    function calcF16_knight(F9,F7,F6){
-      const prod = F6*F9;
-      if(Math.floor(prod) < prod){
-        return F6;
+
+    let base = dmgs[ac % 3];
+    if (flags.var) base *= 0.8 + rng.next() * 0.4;
+    if (rng.next() < CRIT_RATE) base *= critMult;
+
+    for (let i = 0; i < mobHps.length; i++) {
+      if (mobHps[i] > 0) {
+        mobHps[i] -= base;
+        if (mobHps[i] <= 0) mobHps[i] = 0;
       }
-      const p1 = Math.floor(F9*F7*3);
-      const p2 = Math.floor(((F9)-p1)*F6);
-      return (p1+p2)/(F9);
-    }
-    
-    function calcF17_sanguine(F9,F7){ const p1=Math.floor(F9*F7*6); return (p1*15/(F9*2))/100; }
-    function calcF17_knight(F9,F7){ const p1=Math.floor(F9*F7*3); return (p1*15/(F9))/100; }
-    
-    function calcF20_sanguine(F14,F3,F8,F5,F16,F17){ 
-      const baseRight=Math.floor(F3*140*(1+F8+0.04)/25 + 140*(1+F8+0.04)/4); 
-      return (F14+baseRight+F5)*(1+(F16)*0.8+F17); 
-    }
-    
-    function calcF20_knight(F14,F3,F4,F8,F5,F16,F17){ 
-      const baseRight=Math.round(F3*F4/1000*92*(1+F8+0.04)+92*(1+F8+0.04)/4); 
-      return (F14+baseRight+F5)*(1+(F16)*0.78+F17); 
-    }
-    
-    function calcF21_sanguine(F14,F15,F5,F16,F17){ return (F14+F15+F5)*(1+(F16+F17)); }
-    function calcF21_knight(F14,F15,F5,F16,F17){ return (F14+F15+F5)*(1+(F16*0.98+F17)); }
-    
-    function calcF24_sanguine(F14,F15,F11,F9,F7,F5,F6){
-      const base = (F14 + F15 + F5) * 0.03 * 0.25 * F11;
-      const p1 = Math.floor(F9 * F7 * 6);
-      const numer = Math.floor((F9 * 2) - p1);
-      const ratio = numer / (F9 * 2);
-      return base * ratio * (1 - F6);
-    }
-    
-    function calcF24_knight(F14,F15,F11,F9,F7,F5,F6){
-      const base = (F14 + F15 + F5) * 0.0294 * 0.3334 * F11;
-      const p1 = Math.floor(F9 * F7 * 3);
-      const numer = Math.floor((F9) - p1);
-      const ratio = numer / (F9);
-      return base * ratio * (1 - F6);
-    }
-    
-    function calcF25_sanguine(F21,F20,F4,F11,F16){ 
-      const base = Math.round(F4*0.1);
-      const mult = (F21>F20)
-        ? (0.2485*(1 + (100*F16/100)) + 0.0435*(1 + (72*F16/100)))
-        : (0.2485*(1 + (80*F16/100)) + 0.0435*(1 + (72*F16/100)));
-      return base * mult * F11;
-    }
-    
-    function calcF25_knight(F21,F20,F4,F11,F16){ 
-      const base = Math.round(F4*0.1);
-      const mult = (F21>F20)
-        ? (1 + (98*F16/100))
-        : (1 + (72*F16/100));
-      return base * mult * F11;
-    }
-    
-    function calcF26_sanguine(F4,F12,F16){ 
-      const ia = Math.floor((6/5)*48), ib = Math.floor((6/5)*46);
-      const ta = Math.floor(ia*(Math.floor(F4)+4)/28);
-      const tb = Math.floor(ib*(Math.floor(F4)+4)/28);
-      const diff = (ta - tb);
-      return diff * 0.5 * (1 + (72*F16/100)) * F12;
-    }
-    
-    function calcF26_knight(F3,F4,F8,F16){ 
-      const base1 = Math.round((F3+1)*F4/1000*92*(1+F8)+92*(1+F8)/4);
-      const base2 = Math.round((F3+1)*F4/1000*44*(1+F8)+44*(1+F8)/4);
-      const base3 = Math.round((F3+1)*F4/1000*34.08*(1+F8)+34.08*(1+F8)/4);
-      const orig1 = Math.round((F3)*F4/1000*92*(1+F8)+92*(1+F8)/4);
-      const orig2 = Math.round((F3)*F4/1000*44*(1+F8)+44*(1+F8)/4);
-      const orig3 = Math.round((F3)*F4/1000*34.08*(1+F8)+34.08*(1+F8)/4);
-      return (base1 + base2 + base3 - orig1 - orig2 - orig3) * (1 + (72*F16/100))/ 3;
     }
 
-    /* ===== Execução ===== */
-    function rodarCalculadora(){
-      const F2=getNum('level'), F3=getNum('magicLevel'), F4=getNum('distance'), F5=getNum('pontosWheel');
-      const F6=getPctFraction('chanceCrit'), F7=getPctFraction('chanceLegs'), F8=getPctFraction('baseMasSan');
-      const F9=getNum('flechasHora'); 
-      const F11=currentCalculator === 'sanguine' ? getPctMultiplier('holyWeak') : 1;
-      const F12=currentCalculator === 'sanguine' ? getPctMultiplier('physWeak') : 1;
-
-      const F14=calcF14(F2);
-      
-      let F15, F16, F17, F20, F21, F24, F25, F26;
-      
-      if (currentCalculator === 'sanguine') {
-        F15 = calcF15_sanguine(F3,F8);
-        F16 = calcF16_sanguine(F9,F7,F6);
-        F17 = calcF17_sanguine(F9,F7);
-        F20 = calcF20_sanguine(F14,F3,F8,F5,F16,F17);
-        F21 = calcF21_sanguine(F14,F15,F5,F16,F17);
-        F24 = calcF24_sanguine(F14, F15, F11, F9, F7, F5, F6);
-        F25 = calcF25_sanguine(F21,F20,F4,F11, F16);
-        F26 = calcF26_sanguine(F4,F12, F16);
-      } else {
-        F15 = calcF15_knight(F3,F4,F8);
-        F16 = calcF16_knight(F9,F7,F6);
-        F17 = calcF17_knight(F9,F7);
-        F20 = calcF20_knight(F14,F3,F4,F8,F5,F16,F17);
-        F21 = calcF21_knight(F14,F15,F5,F16,F17);
-        F24 = calcF24_knight(F14, F15, F11, F9, F7, F5, F6);
-        F25 = calcF25_knight(F21,F20,F4,F11, F16);
-        F26 = calcF26_knight(F3,F4,F8, F16);
-      }
-
-      /* Resumo: Level dmg exibe F14 + F5 */
-      const F14Resumo = F14 + F5;
-
-      setText('outF14', F14Resumo);
-      setText('outF15', F15);
-      setText('outF16', (F16*100).toFixed(4) + ' %');
-      setText('outF17', (F17*100).toFixed(4) + ' %');
-
-      const fmt = fmtCache.get();
-      document.getElementById('outF20').textContent = fmt.format(F20);
-      document.getElementById('outF21').textContent = fmt.format(F21);
-      document.getElementById('outF24').textContent = fmt.format(F24);
-      document.getElementById('outF25').textContent = fmt.format(F25);
-      document.getElementById('outF26').textContent = fmt.format(F26);
-
-      const stateKey = currentCalculator === 'sanguine' ? 'calc_state_sanguine' : 'calc_state_knight';
-      try{ localStorage.setItem(stateKey, JSON.stringify({F2,F3,F4,F5,F6,F7,F8,F9,F11,F12})); }catch(e){}
-
-      clearHighlights();
-      const w4 = (F20>=F21)?'cardF20':'cardF21';
-      document.getElementById(w4).classList.add('is-best');
-
-      let w5='cardF24', m5=F24;
-      if(F25>m5){ w5='cardF25'; m5=F25; }
-      if(F26>m5){ w5='cardF26'; m5=F26; }
-      document.getElementById(w5).classList.add('is-best');
+    const newHps = [];
+    for (const hp of mobHps) {
+      if (hp === 0) totalKills++;
+      else newHps.push(hp);
     }
+    mobHps = newHps;
+    ac++;
+  }
 
-    /* ===== Share ===== */
-    function buildShareURL(){
-      const raw = {
-        calc: currentCalculator,
-        level: level.value, magicLevel: magicLevel.value, distance: distance.value, pontosWheel: pontosWheel.value,
-        chanceCrit: chanceCrit.value, chanceLegs: chanceLegs.value, baseMasSan: baseMasSan.value,
-        flechasHora: flechasHora.value
-      };
-      if (currentCalculator === 'sanguine') {
-        raw.holyWeak = holyWeak.value;
-        raw.physWeak = physWeak.value;
-      }
-      const params=new URLSearchParams(raw);
-      const base=window.location.origin+window.location.pathname;
-      return base+'?'+params.toString();
+  const xph = totalKills * mobXp / (seconds / 3600);
+  return { xph, turnCounts, totalKills };
+}
+
+function simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags, levelSeed) {
+  const counter = {};
+  let totalXph = 0;
+  let totalBoxes = 0;
+  let totalTurnsAccum = 0;
+  for (let s = 0; s < N_SESSIONS; s++) {
+    const sessionSeed = levelSeed * 104729 + s * 7919;
+    const res = simSession(sessionSeed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags, SESSION_SECONDS);
+    totalXph += res.xph;
+    totalBoxes += res.turnCounts.length;
+    for (const t of res.turnCounts) {
+      counter[t] = (counter[t] || 0) + 1;
+      totalTurnsAccum += t;
     }
-    async function doShare(){
-      const lang=currentLang(); const t=i18n[lang]||i18n.pt; const url=buildShareURL();
-      const calcType = currentCalculator === 'sanguine' ? t.calculators.sanguine : t.calculators.knight;
-      const txt=[
-        calcType + " - " + t.shareSummary+":",
-        t.summary.f14+": "+document.getElementById("outF14").innerText,
-        t.summary.f15+": "+document.getElementById("outF15").innerText,
-        t.summary.f16+": "+document.getElementById("outF16").innerText,
-        t.summary.f17+": "+document.getElementById("outF17").innerText,
-        t.groups.stage4+" — "+document.getElementById("labelF20").innerText+": "+document.getElementById("outF20").innerText,
-        t.groups.stage4+" — "+document.getElementById("labelF21").innerText+": "+document.getElementById("outF21").innerText,
-        t.groups.stage5+" — "+document.getElementById("labelF25").innerText+": "+document.getElementById("outF25").innerText,
-        t.groups.stage5+" — "+document.getElementById("labelF24").innerText+": "+document.getElementById("outF24").innerText,
-        t.groups.stage5+" — "+document.getElementById("labelF26").innerText+": "+document.getElementById("outF26").innerText
-      ].join("\n");
+  }
+  const avgXph = totalXph / N_SESSIONS;
+  const avgTurns = totalBoxes > 0 ? totalTurnsAccum / totalBoxes : 0;
+  const dist = {};
+  if (totalBoxes > 0) {
+    for (const t in counter) dist[t] = +(counter[t] / totalBoxes * 100).toFixed(2);
+  }
+  let pLeq10 = 0;
+  for (const t in counter) if (+t <= 10) pLeq10 += counter[t] / totalBoxes;
+  return { dist, avgTurns, xph: avgXph, pLeq10: pLeq10 * 100 };
+}
 
-      if(navigator.share){
-        try{ await navigator.share({ title:t.shareTitle, text:txt, url }); statusText.innerText=(lang==="en"?"Shared!":"Compartilhado!"); setTimeout(()=>statusText.innerText="",1500); return; }catch(e){}
-      }
-      try{ await navigator.clipboard.writeText(url); statusText.innerText=(lang==="en"?"Link copied ✓":"Link copiado ✓"); setTimeout(()=>statusText.innerText="",1500); }catch(e){ statusText.innerText=url; }
-    }
+function simulateAll(baseDmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags) {
+  const result = {};
+  for (let inc = 0; inc <= 20; inc++) {
+    const dmgs = baseDmgs.map(d => d + inc);
+    const levelSeed = 12345 + inc * 31337;
+    result[inc] = simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags, levelSeed);
+  }
+  return result;
+}
 
-    /* ===== i18n ===== */
-    const i18n = {
-      pt: {
-        calculators: { sanguine: "Sanguine Bow", knight: "Elite Knight Sanguines" },
-        appTitle: {
-          sanguine: "Calculadora Perks Sanguine Bow",
-          knight: "Calculadora Perks Elite Knight Sanguines"
-        },
-        title: {
-          sanguine: "Calculadora Perks Sanguine Bow",
-          knight: "Calculadora Perks Elite Knight Sanguines"
-        },
-        buttons:{ share:"Compartilhar", reset:"Limpar" },
-        groups:{ resumo:"Resumo", stage4:"Stage 4", stage5:"Stage 5" },
-        labels: {
-          sanguine: { 
-            level:"Level", magicLevel:"Magic Level", distance:"Distance", 
-            pontosWheel:"Pontos Dmg/Healing Roda", chanceCrit:"Chance de crítico (%)", 
-            chanceLegs:"Chance ativação legs (%)", baseMasSan:"Base mas san (roda + gemas) (%)", 
-            flechasHora:"Flechas/hora", holyWeak:"Dano sofrido por Sagrado (%)", 
-            physWeak:"Dano sofrido por Físico (%)" 
-          },
-          knight: { 
-            level:"Level", magicLevel:"Weapon Attack", distance:"Sword/axe/club", 
-            pontosWheel:"Pontos Dmg/Healing Roda", chanceCrit:"Chance de crítico (%)", 
-            chanceLegs:"Chance ativação legs (%)", baseMasSan:"Base exori gran (roda + gemas) (%)", 
-            flechasHora:"Turnos/hora"
-          }
-        },
-        summary:{ f14:"Level dmg", f15:"Base dmg", f16:"Chance crítico ajustada", f17:"Bônus legs → avatar 3" },
-        stage4: {
-          sanguine: { 
-            f20:"+4% base damage para Divine Caldera", 
-            f21:"+20% critical extra damage para Divine Caldera" 
-          },
-          knight: { 
-            f20:"+4% base damage para Fierce Berserk", 
-            f21:"+20% critical extra damage para Fierce Berserk" 
-          }
-        },
-        stage5: {
-          sanguine: { 
-            f24:"+3% critical hit chance para Divine Caldera", 
-            f25:"+10% Distance Fighting p/ spells", 
-            f26:"+2 attack" 
-          },
-          knight: { 
-            f24:"+3% critical hit chance para Fierce Berserk", 
-            f25:"+10% do seu skill como extra damage para suas spells", 
-            f26:"+1 attack" 
-          }
-        },
-        shareTitle:"Minha simulação — Calculadora", shareSummary:"Resumo", badge:"Melhor 🏆",
-        ui:{ code:"PT-BR" }
+const LEVEL_COLORS = Array.from({length: 21}, (_, i) => {
+  const t = i / 20;
+  const r = Math.round(0x3B + t * (0xF5 - 0x3B));
+  const g = Math.round(0x82 + t * (0xA6 - 0x82));
+  const b = Math.round(0xF6 + t * (0x23 - 0xF6));
+  return `rgb(${r},${g},${b})`;
+});
+
+const $ = id => document.getElementById(id);
+const cbCharm = $('cb-charm'), cbCrit = $('cb-crit'), cbInt = $('cb-int'), cbVar = $('cb-var');
+const slider = $('sliderDmg'), sliderA = $('sliderA'), sliderB = $('sliderB');
+const lblDmg = $('lblDmg'), lblA = $('lblA'), lblB = $('lblB');
+const cfgLbl = $('cfgLabel'), status = $('simStatus');
+
+function getFlags() {
+  return { charm: cbCharm.checked, crit: cbCrit.checked, intel: cbInt.checked, var: cbVar.checked };
+}
+function getCfgName(f) {
+  const k = (f.charm?'1':'0') + (f.crit?'1':'0') + (f.intel?'1':'0') + (f.var?'1':'0');
+  return (I18N[LANG].cfg && I18N[LANG].cfg[k]) || k;
+}
+function getInputs() {
+  return {
+    baseDmgs: [+$('dmg1').value || 500, +$('dmg2').value || 600, +$('dmg3').value || 1000],
+    charmDmg: +$('charmDmg').value || 500,
+    critBoost: +$('critBoost').value || 0,
+    mobHp: +$('mobHp').value || 8000,
+    mobXp: +$('mobXp').value || 10000,
+    boxSize: Math.max(1, +$('boxSize').value || 8),
+    exitThreshold: Math.max(1, +$('exitThreshold').value || 3)
+  };
+}
+function allTurns(cache) {
+  const s = new Set();
+  Object.values(cache).forEach(r => Object.keys(r.dist).forEach(k => s.add(+k)));
+  return [...s].sort((a, b) => a - b);
+}
+function fmtN(n) {
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(0) + 'k';
+  return n.toFixed(0);
+}
+function fmtDelta(pct) {
+  if (Math.abs(pct) < 0.01) return '—';
+  return (pct > 0 ? '+' : '') + pct.toFixed(2) + '%';
+}
+
+let cache = null, compareChart = null, evolChart = null, curveChart = null;
+
+function runSim() {
+  const inp = getInputs();
+  const flags = getFlags();
+  const critMult = flags.crit ? CRIT_BASE + inp.critBoost / 100 : CRIT_BASE;
+  const dec = LANG === 'pt' ? ',' : '.';
+  $('critBoostHint').textContent = (inp.critBoost / 100).toFixed(2).replace('.', dec);
+  $('critFinal').textContent = (CRIT_BASE + inp.critBoost / 100).toFixed(2).replace('.', dec);
+  const totalHours = N_SESSIONS * SESSION_SECONDS / 3600 * 21;
+  const locale = LANG === 'pt' ? 'pt-BR' : 'en-US';
+  status.textContent = t('status_simulating').replace('{h}', totalHours.toLocaleString(locale));
+  $('btnRun').disabled = true;
+  setTimeout(() => {
+    const t0 = performance.now();
+    cache = simulateAll(inp.baseDmgs, inp.charmDmg, critMult, inp.mobHp, inp.mobXp, inp.boxSize, inp.exitThreshold, flags);
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+    status.textContent = t('status_done')
+      .replace('{n}', N_SESSIONS)
+      .replace('{h}', SESSION_SECONDS / 3600)
+      .replace('{total}', totalHours.toLocaleString(locale))
+      .replace('{elapsed}', elapsed);
+    $('btnRun').disabled = false;
+    drawAll();
+  }, 10);
+}
+
+function drawMetrics() {
+  if (!cache) return;
+  const inc = +slider.value;
+  const cur = cache[inc], ref = cache[0];
+  $('metTurns').textContent = cur.avgTurns.toFixed(2);
+  $('metXph').textContent = fmtN(cur.xph);
+  $('metProb').textContent = cur.pLeq10.toFixed(1) + '%';
+  const turnsDelta = ref.avgTurns > 0 ? ((ref.avgTurns - cur.avgTurns) / ref.avgTurns) * 100 : 0;
+  const xphDelta = ref.xph > 0 ? ((cur.xph - ref.xph) / ref.xph) * 100 : 0;
+  const probDelta = cur.pLeq10 - ref.pLeq10;
+  const baseLbl = t('base_level');
+  const vsBase = t('vs_base');
+  $('metTurnsDelta').textContent = inc === 0 ? baseLbl :
+    (turnsDelta > 0.01 ? '-' + turnsDelta.toFixed(2) + '% ' + vsBase : vsBase);
+  $('metTurnsDelta').className = 'metric-delta ' + (inc > 0 && turnsDelta > 0.01 ? 'delta-pos' : 'delta-neu');
+  $('metXphDelta').textContent = inc === 0 ? baseLbl : fmtDelta(xphDelta) + ' ' + vsBase;
+  $('metXphDelta').className = 'metric-delta ' + (xphDelta > 0.01 ? 'delta-pos' : 'delta-neu');
+  $('metProbDelta').textContent = inc === 0 ? baseLbl :
+    (probDelta > 0.01 ? '+' + probDelta.toFixed(1) + ' pp' : vsBase);
+  $('metProbDelta').className = 'metric-delta ' + (probDelta > 0.01 ? 'delta-pos' : 'delta-neu');
+  const gain100h = (cur.xph - ref.xph) * 100;
+  $('metGain100').textContent = gain100h >= 0 ? '+' + fmtN(gain100h) : fmtN(gain100h);
+}
+
+function drawCompare() {
+  if (!cache) return;
+  const a = +sliderA.value, b = +sliderB.value;
+  lblA.textContent = '+' + a;
+  lblB.textContent = '+' + b;
+  const turns = allTurns(cache);
+  const dA = cache[a].dist, dB = cache[b].dist;
+  if (compareChart) compareChart.destroy();
+  compareChart = new Chart($('compareChart'), {
+    type: 'bar',
+    data: {
+      labels: turns.map(t => t + ' t'),
+      datasets: [
+        { label: '+' + a, data: turns.map(t => dA[t] || 0),
+          backgroundColor: 'rgba(59,130,246,0.7)', borderColor: '#3B82F6',
+          borderWidth: 1, borderRadius: 4 },
+        { label: '+' + b, data: turns.map(t => dB[t] || 0),
+          backgroundColor: 'rgba(245,166,35,0.7)', borderColor: '#F59E0B',
+          borderWidth: 1, borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { color: '#8BA4C2', font: { size: 11 }, boxWidth: 10, boxHeight: 10 } },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%' } }
       },
-      en: {
-        calculators: { sanguine: "Sanguine Bow", knight: "Elite Knight Sanguines" },
-        appTitle: {
-          sanguine: "Sanguine Bow Proficiency Calculator",
-          knight: "Elite Knight Sanguines Proficiency Calculator"
-        },
-        title: {
-          sanguine: "Sanguine Bow Proficiency Calculator",
-          knight: "Elite Knight Sanguines Proficiency Calculator"
-        },
-        buttons:{ share:"Share", reset:"Reset" },
-        groups:{ resumo:"Resume", stage4:"Stage 4", stage5:"Stage 5" },
-        labels: {
-          sanguine: { 
-            level:"Level", magicLevel:"Magic Level", distance:"Distance", 
-            pontosWheel:"Dmg/Healing from Wheel", chanceCrit:"Critical chance (%)", 
-            chanceLegs:"Trancendence Triggering Chance (legs) (%)", baseMasSan:"Base mas san (wheel + gems) (%)", 
-            flechasHora:"Arrows/hour", holyWeak:"Damage taken from Holy (%)", 
-            physWeak:"Damage taken from Physical (%)" 
-          },
-          knight: { 
-            level:"Level", magicLevel:"Weapon Attack", distance:"Sword/axe/club", 
-            pontosWheel:"Dmg/Healing from Wheel", chanceCrit:"Critical chance (%)", 
-            chanceLegs:"Trancendence Triggering Chance (legs) (%)", baseMasSan:"Base exori gran (wheel + gems) (%)", 
-            flechasHora:"Turns/hour"
-          }
-        },
-        summary:{ f14:"Level dmg", f15:"Base dmg", f16:"Ajusted Critical Chance", f17:"Transcendence avatar 3 Bonus" },
-        stage4: {
-          sanguine: { 
-            f20:"+4% base damage for Divine Caldera", 
-            f21:"+20% critical extra damage for Divine Caldera" 
-          },
-          knight: { 
-            f20:"+4% base damage for Fierce Berserk", 
-            f21:"+20% critical extra damage for Fierce Berserk" 
-          }
-        },
-        stage5: {
-          sanguine: { 
-            f24:"+3% critical hit chance for Divine Caldera", 
-            f25:"+10% Distance Fighting as extra damage for spells", 
-            f26:"+2 attack" 
-          },
-          knight: { 
-            f24:"+3% critical hit chance for Fierce Berserk", 
-            f25:"+10% of skill as extra damage for your spells", 
-            f26:"+1 attack" 
-          }
-        },
-        shareTitle:"My simulation — Calculator", shareSummary:"Resume", badge:"Best 🏆",
-        ui:{ code:"ENG" }
+      scales: {
+        x: { grid: { color: 'rgba(139,164,194,0.1)' }, ticks: { color: '#8BA4C2', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(139,164,194,0.1)' }, ticks: { color: '#8BA4C2', font: { size: 11 }, callback: v => v + '%' }, beginAtZero: true }
       }
-    };
-
-    function applyLang(lang){
-      const t=i18n[lang]||i18n.pt;
-      const calcLabels = t.labels[currentCalculator];
-      const calcStage4 = t.stage4[currentCalculator];
-      const calcStage5 = t.stage5[currentCalculator];
-
-      document.title=t.appTitle[currentCalculator]+" — versão web";
-      document.getElementById('mainTitle').textContent=t.title[currentCalculator];
-      shareBtn.textContent=t.buttons.share;
-      clearBtn.textContent=t.buttons.reset;
-
-      const gResumo=document.querySelector("#groupResumo h3"); if(gResumo) gResumo.textContent=t.groups.resumo;
-      const g4=document.querySelector("#groupStage4 h3"); if(g4) g4.textContent=t.groups.stage4;
-      const g5=document.querySelector("#groupStage5 h3"); if(g5) g5.textContent=t.groups.stage5;
-
-      // labels
-      document.getElementById('levelLabel').textContent = calcLabels.level;
-      document.getElementById('magicLevelLabel').textContent = calcLabels.magicLevel;
-      document.getElementById('distanceLabel').textContent = calcLabels.distance;
-      document.getElementById('pontosWheelLabel').textContent = calcLabels.pontosWheel;
-      document.getElementById('chanceCritLabel').textContent = calcLabels.chanceCrit;
-      document.getElementById('chanceLegsLabel').textContent = calcLabels.chanceLegs;
-      document.getElementById('baseMasSanLabel').textContent = calcLabels.baseMasSan;
-      document.getElementById('flechasHoraLabel').textContent = calcLabels.flechasHora;
-      if (calcLabels.holyWeak) document.getElementById('holyWeakLabel').textContent = calcLabels.holyWeak;
-      if (calcLabels.physWeak) document.getElementById('physWeakLabel').textContent = calcLabels.physWeak;
-
-      // Resumo prefixes
-      const setPrefix=(outId, txt)=>{ const span=document.getElementById(outId); if(span && span.parentElement){ span.parentElement.innerHTML = txt + ": <span id='"+outId+"'>" + span.textContent + "</span>"; } };
-      setPrefix("outF14",t.summary.f14); setPrefix("outF15",t.summary.f15); setPrefix("outF16",t.summary.f16); setPrefix("outF17",t.summary.f17);
-
-      // nomes dos perks
-      labelF20.textContent=calcStage4.f20; labelF21.textContent=calcStage4.f21;
-      labelF24.textContent=calcStage5.f24; labelF25.textContent=calcStage5.f25; labelF26.textContent=calcStage5.f26;
-
-      // badges
-      document.querySelectorAll('.perk-card__badge').forEach(el=>el.textContent=t.badge);
-
-      // botão atual (código + flag)
-      document.getElementById('langCode').textContent = t.ui.code;
-      setFlagImages(lang);
-
-      document.documentElement.lang=(lang==='en'?'en':'pt-BR');
-      fmtCache.reset();
-      rodarCalculadora();
-      try{ localStorage.setItem("calc_lang", lang); }catch(e){}
     }
+  });
+}
 
-    /* ===== Tema escuro/claro com switch ===== */
-    function setTheme(theme){
-      const root=document.body;
-      if(theme==='dark'){ root.classList.add('theme-dark'); }
-      else { root.classList.remove('theme-dark'); }
-      try{ localStorage.setItem('calc_theme', theme); }catch(e){}
-      const cb=document.getElementById('themeToggle');
-      const isDark = theme==='dark';
-      if(cb) cb.checked = isDark;
-    }
-    function initTheme(){
-      let t='light';
-      try{
-        const saved=localStorage.getItem('calc_theme');
-        if(saved) t=saved;
-        else if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) t='dark';
-      }catch(e){}
-      setTheme(t);
-      const cb=document.getElementById('themeToggle');
-      cb.addEventListener('change', ()=> setTheme(cb.checked ? 'dark' : 'light'));
-    }
-
-    /* ===== Menu de idioma ===== */
-    (function setupLangMenu(){
-      const btn=document.getElementById('langCurrent');
-      const menu=document.getElementById('langMenu');
-      function openMenu(){ menu.hidden=false; btn.setAttribute('aria-expanded','true'); }
-      function closeMenu(){ menu.hidden=true; btn.setAttribute('aria-expanded','false'); }
-      btn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.hidden?openMenu():closeMenu(); });
-      menu.querySelectorAll('.lang-opt').forEach(opt=>{
-        opt.addEventListener('click',(e)=>{ const lang=e.currentTarget.dataset.lang; applyLang(lang); closeMenu(); });
-      });
-      document.addEventListener('click',(e)=>{ if(!menu.hidden && !document.getElementById('langSwitch').contains(e.target)) closeMenu(); });
-
-      const initial=currentLang();
-      applyLang(initial);
-      setFlagImages(initial);
-      initTheme();
-    })();
-
-    /* ===== Calculator Switcher Setup ===== */
-    (function setupCalcSwitcher(){
-      document.querySelectorAll('.calc-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          switchCalculator(btn.dataset.calc);
-        });
-      });
-      
-      // Initialize from storage or URL
-      const params = new URLSearchParams(window.location.search);
-      const urlCalc = params.get('calc');
-      const storedCalc = (() => { try { return localStorage.getItem('calc_type'); } catch(e) { return null; } })();
-      
-      if (urlCalc && ['sanguine', 'knight'].includes(urlCalc)) {
-        switchCalculator(urlCalc);
-      } else if (storedCalc && ['sanguine', 'knight'].includes(storedCalc)) {
-        switchCalculator(storedCalc);
-      } else {
-        switchCalculator('sanguine'); // default
-      }
-    })();
-
-    /* ===== Boot restore + eventos ===== */
-    (function restoreAndRun(){
-      const params=new URLSearchParams(window.location.search);
-      if(params && Array.from(params.keys()).length){
-        const set=(id,key)=>{ if(params.has(key)) document.getElementById(id).value=params.get(key); };
-        set('level','level'); set('magicLevel','magicLevel'); set('distance','distance'); set('pontosWheel','pontosWheel');
-        set('chanceCrit','chanceCrit'); set('chanceLegs','chanceLegs'); set('baseMasSan','baseMasSan'); set('flechasHora','flechasHora');
-        set('holyWeak','holyWeak'); set('physWeak','physWeak');
-      }else{
-        try{
-          const stateKey = currentCalculator === 'sanguine' ? 'calc_state_sanguine' : 'calc_state_knight';
-          const raw=localStorage.getItem(stateKey);
-          if(raw){
-            const st=JSON.parse(raw);
-            const set=(id,val)=>{ if(val!==undefined && val!==null) document.getElementById(id).value=val; };
-            set('level',st.F2); set('magicLevel',st.F3); set('distance',st.F4); set('pontosWheel',st.F5);
-            if(st.F6!=null) chanceCrit.value=(st.F6*100).toString();
-            if(st.F7!=null) chanceLegs.value=(st.F7*100).toString();
-            if(st.F8!=null) baseMasSan.value=(st.F8*100).toString();
-            flechasHora.value=st.F9 ?? flechasHora.value;
-            if(st.F11!=null && currentCalculator === 'sanguine') holyWeak.value=(st.F11*100).toString();
-            if(st.F12!=null && currentCalculator === 'sanguine') physWeak.value=(st.F12*100).toString();
+function drawEvol() {
+  if (!cache) return;
+  const levels = Array.from({length: 21}, (_, i) => i);
+  const turnsData = levels.map(i => +cache[i].avgTurns.toFixed(3));
+  const xphData = levels.map(i => Math.round(cache[i].xph));
+  if (evolChart) evolChart.destroy();
+  evolChart = new Chart($('evolChart'), {
+    type: 'line',
+    data: {
+      labels: levels.map(i => '+' + i),
+      datasets: [
+        { label: t('chart_turns_label'), data: turnsData, borderColor: '#3B82F6', backgroundColor: '#3B82F6',
+          yAxisID: 'y', tension: 0.25, pointRadius: 3, borderWidth: 2 },
+        { label: t('chart_xph_label'), data: xphData, borderColor: '#10B981', backgroundColor: '#10B981',
+          yAxisID: 'y1', tension: 0.25, pointRadius: 3, borderWidth: 2, borderDash: [4, 3] }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { color: '#8BA4C2', font: { size: 11 }, boxWidth: 10, boxHeight: 10 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.dataset.label === t('chart_xph_label') ? ' ' + t('chart_xph_label') + ': ' + fmtN(ctx.parsed.y) : ' ' + t('chart_turns_axis') + ': ' + ctx.parsed.y.toFixed(2)
           }
-        }catch(e){}
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(139,164,194,0.1)' }, ticks: { color: '#8BA4C2', font: { size: 10 } } },
+        y: { position: 'left', grid: { color: 'rgba(139,164,194,0.1)' },
+          ticks: { color: '#3B82F6', font: { size: 11 }, callback: v => v.toFixed(1) },
+          title: { display: true, text: t('chart_turns_axis'), color: '#3B82F6', font: { size: 11 } } },
+        y1: { position: 'right', grid: { display: false },
+          ticks: { color: '#10B981', font: { size: 11 }, callback: v => fmtN(v) },
+          title: { display: true, text: t('chart_xph_label'), color: '#10B981', font: { size: 11 } } }
       }
-      rodarCalculadora();
-    })();
+    }
+  });
+}
 
-    const ids=['level','magicLevel','distance','pontosWheel','chanceCrit','chanceLegs','baseMasSan','flechasHora','holyWeak','physWeak'];
-    ids.forEach(id=>{ 
-      const el=document.getElementById(id); 
-      if (el) {
-        el.addEventListener('input', rodarCalculadora); 
-        el.addEventListener('change', rodarCalculadora); 
+function drawCurve() {
+  if (!cache) return;
+  const turns = allTurns(cache);
+  const items = [];
+  for (let i = 0; i <= 20; i += 4) {
+    items.push('<span class="leg-item"><span class="leg-swatch" style="background:' + LEVEL_COLORS[i] + '"></span>+' + i + '</span>');
+  }
+  $('legendCurve').innerHTML = items.join('');
+  if (curveChart) curveChart.destroy();
+  const datasets = Array.from({length: 21}, (_, i) => ({
+    label: '+' + i,
+    data: turns.map(t => cache[i].dist[t] || 0),
+    borderColor: LEVEL_COLORS[i],
+    backgroundColor: 'transparent',
+    borderWidth: i % 5 === 0 ? 2.5 : 1.2,
+    borderDash: i % 5 === 0 ? [] : [4, 3],
+    pointRadius: 0,
+    tension: 0.4
+  }));
+  curveChart = new Chart($('curveChart'), {
+    type: 'line',
+    data: { labels: turns.map(String), datasets: datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%' } }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(139,164,194,0.1)' },
+          ticks: { color: '#8BA4C2', font: { size: 11 } },
+          title: { display: true, text: t('chart_turns_per_box'), color: '#8BA4C2', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(139,164,194,0.1)' },
+          ticks: { color: '#8BA4C2', font: { size: 11 }, callback: v => v + '%' },
+          beginAtZero: true,
+          title: { display: true, text: t('chart_pct_boxes'), color: '#8BA4C2', font: { size: 11 } } }
       }
-    });
-    
-    clearBtn.addEventListener('click',()=>{ 
-      ids.forEach(id=>{
-        const el = document.getElementById(id);
-        if (el) el.value='';
-      }); 
-      ['outF14','outF15','outF16','outF17','outF20','outF21','outF24','outF25','outF26'].forEach(id=>setText(id,'--')); 
-      try{ 
-        localStorage.removeItem('calc_state_sanguine'); 
-        localStorage.removeItem('calc_state_knight'); 
-      }catch(e){} 
-      clearHighlights(); 
-      statusText.innerText=''; 
-    });
-    
-    shareBtn.addEventListener('click', doShare);
-  </script>
+    }
+  });
+}
+
+function drawTable() {
+  if (!cache) return;
+  const rows = [0, 5, 10, 15, 20];
+  const ref = cache[0];
+  let html = '<thead><tr>' +
+    '<th>' + t('table_level') + '</th>' +
+    '<th>' + t('table_turns') + '</th>' +
+    '<th>' + t('table_xph') + '</th>' +
+    '<th>' + t('table_delta') + '</th>' +
+    '<th>' + t('table_prob') + '</th>' +
+    '<th>' + t('table_gain') + '</th>' +
+    '</tr></thead><tbody>';
+  rows.forEach(i => {
+    const r = cache[i];
+    const deltaPct = ref.xph > 0 ? ((r.xph - ref.xph) / ref.xph) * 100 : 0;
+    const gain100 = (r.xph - ref.xph) * 100;
+    const cls = i > 0 && deltaPct > 0.01 ? 'highlight' : '';
+    html += '<tr class="' + cls + '">' +
+      '<td>+' + i + '</td>' +
+      '<td>' + r.avgTurns.toFixed(2) + '</td>' +
+      '<td>' + fmtN(r.xph) + '</td>' +
+      '<td>' + (i === 0 ? '—' : fmtDelta(deltaPct)) + '</td>' +
+      '<td>' + r.pLeq10.toFixed(1) + '%</td>' +
+      '<td>' + (i === 0 ? '—' : (gain100 >= 0 ? '+' : '') + fmtN(gain100)) + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody>';
+  $('resumeTable').innerHTML = html;
+}
+
+function drawAll() {
+  drawMetrics();
+  drawCompare();
+  drawEvol();
+  drawCurve();
+  drawTable();
+}
+
+function updateUI() {
+  const f = getFlags();
+  cfgLbl.textContent = getCfgName(f);
+  ['charm', 'crit', 'int', 'var'].forEach(id => {
+    $('wrap-' + id).classList.toggle('active', $('cb-' + id).checked);
+  });
+  lblDmg.textContent = '+' + slider.value;
+}
+
+[cbCharm, cbCrit, cbInt, cbVar].forEach(cb => {
+  cb.addEventListener('change', () => { updateUI(); runSim(); });
+});
+['dmg1', 'dmg2', 'dmg3', 'charmDmg', 'critBoost', 'mobHp', 'mobXp', 'boxSize', 'exitThreshold'].forEach(id => {
+  $(id).addEventListener('change', runSim);
+});
+slider.addEventListener('input', () => { updateUI(); drawMetrics(); });
+sliderA.addEventListener('input', drawCompare);
+sliderB.addEventListener('input', drawCompare);
+$('btnRun').addEventListener('click', runSim);
+
+updateUI();
+runSim();
+</script>
 </body>
 </html>
