@@ -298,6 +298,7 @@ input[type="range"] { accent-color: var(--accent); }
   </div>
   <span class="cfg-badge" id="cfgLabel">Baseline</span>
   <button id="btnRun" data-i18n="btn_run">recalcular</button>
+  <button id="btnShare" data-i18n="btn_share">copiar link</button>
   <span class="sim-status" id="simStatus" data-i18n="status_ready">pronto</span>
 </div>
 
@@ -314,9 +315,9 @@ input[type="range"] { accent-color: var(--accent); }
     <div class="metric-delta" id="metXphDelta">—</div>
   </div>
   <div class="metric">
-    <div class="metric-label" data-i18n="met_prob">P(box ≤ 10 turnos)</div>
-    <div class="metric-value" id="metProb">—</div>
-    <div class="metric-delta" id="metProbDelta">—</div>
+    <div class="metric-label" data-i18n="met_xph_abs_diff">diferença absoluta de XP/h</div>
+    <div class="metric-value" id="metAbsDiff">—</div>
+    <div class="metric-delta" data-i18n="vs_base">vs nível +0</div>
   </div>
   <div class="metric">
     <div class="metric-label" data-i18n="met_gain100">ganho em 100h de hunt</div>
@@ -327,18 +328,18 @@ input[type="range"] { accent-color: var(--accent); }
 
 <div class="row">
   <label data-i18n="label_slider">nível de dano bônus</label>
-  <input type="range" id="sliderDmg" min="0" max="20" value="0" step="1" style="width:180px">
+  <input type="range" id="sliderDmg" min="0" max="40" value="0" step="1" style="width:180px">
   <span id="lblDmg" style="font-size:14px;font-weight:500;min-width:50px">+0</span>
 </div>
 
 <h3 data-i18n="h_compare">distribuição de turnos — comparar dois níveis</h3>
 <div class="compare-row">
   <label data-i18n="label_compare">comparar</label>
-  <input type="range" id="sliderA" min="0" max="20" value="0" step="1" style="width:140px">
+  <input type="range" id="sliderA" min="0" max="40" value="0" step="1" style="width:140px">
   <span id="lblA" style="font-size:13px;font-weight:500;min-width:36px;color:#3B82F6">+0</span>
   <label style="margin-left:8px" data-i18n="label_with">com</label>
-  <input type="range" id="sliderB" min="0" max="20" value="20" step="1" style="width:140px">
-  <span id="lblB" style="font-size:13px;font-weight:500;min-width:36px;color:#F59E0B">+20</span>
+  <input type="range" id="sliderB" min="0" max="40" value="40" step="1" style="width:140px">
+  <span id="lblB" style="font-size:13px;font-weight:500;min-width:36px;color:#F59E0B">+40</span>
 </div>
 <div class="chart-container">
   <div style="position:relative;height:220px"><canvas id="compareChart"></canvas></div>
@@ -399,13 +400,15 @@ const I18N = {
     cb_var: 'dano variável (±20%)',
 
     btn_run: 'recalcular',
+    btn_share: 'copiar link',
+    btn_share_copied: 'link copiado!',
     status_ready: 'pronto',
     status_simulating: 'simulando {h}h totais (pode levar alguns segundos)...',
-    status_done: '{n} × {h}h × 21 níveis = {total}h · {elapsed}s',
+    status_done: '{n} × {h}h × 41 níveis = {total}h · {elapsed}s',
 
     met_turns: 'turnos médios por box',
     met_xph: 'XP/h estimado',
-    met_prob: 'P(box ≤ 10 turnos)',
+    met_xph_abs_diff: 'diferença absoluta de XP/h',
     met_gain100: 'ganho em 100h de hunt',
     vs_base: 'vs nível +0',
     base_level: 'nível base',
@@ -422,7 +425,7 @@ const I18N = {
     table_turns: 'turnos médios',
     table_xph: 'XP/h',
     table_delta: 'Δ XP/h vs +0',
-    table_prob: 'P(≤10 turnos)',
+    table_abs_diff: 'diferença abs. XP/h',
     table_gain: 'ganho em 100h',
 
     chart_turns_label: 'turnos médios',
@@ -475,13 +478,15 @@ const I18N = {
     cb_var: 'damage variance (±20%)',
 
     btn_run: 'recalculate',
+    btn_share: 'copy link',
+    btn_share_copied: 'link copied!',
     status_ready: 'ready',
     status_simulating: 'simulating {h}h total (may take a few seconds)...',
-    status_done: '{n} × {h}h × 21 levels = {total}h · {elapsed}s',
+    status_done: '{n} × {h}h × 41 levels = {total}h · {elapsed}s',
 
     met_turns: 'average turns per box',
     met_xph: 'estimated XP/h',
-    met_prob: 'P(box ≤ 10 turns)',
+    met_xph_abs_diff: 'absolute XP/h difference',
     met_gain100: 'gain over 100h of hunting',
     vs_base: 'vs level +0',
     base_level: 'base level',
@@ -498,7 +503,7 @@ const I18N = {
     table_turns: 'avg turns',
     table_xph: 'XP/h',
     table_delta: 'Δ XP/h vs +0',
-    table_prob: 'P(≤10 turns)',
+    table_abs_diff: 'abs. XP/h diff',
     table_gain: 'gain over 100h',
 
     chart_turns_label: 'average turns',
@@ -538,7 +543,7 @@ function applyI18n() {
   // atualizar status se já tiver sido calculado
   const st = document.getElementById('simStatus');
   if (st && typeof cache !== 'undefined' && cache && typeof N_SESSIONS !== 'undefined') {
-    const totalHours = N_SESSIONS * SESSION_SECONDS / 3600 * 21;
+    const totalHours = N_SESSIONS * SESSION_SECONDS / 3600 * N_LEVELS;
     const locale = LANG === 'pt' ? 'pt-BR' : 'en-US';
     st.textContent = t('status_done')
       .replace('{n}', N_SESSIONS)
@@ -560,8 +565,9 @@ const TURN_DURATION = 2;
 const BOX_CHANGE_TIME = 3;
 const SPAWN_DURATION = 6;
 const SPAWN_CURVE = 2.4;
+const N_LEVELS = 41;                // +0 a +40
 const SESSION_SECONDS = 3600 * 10;  // 10h por sessão
-const N_SESSIONS = 12;              // 12 × 10h = 120h por nível (2520h totais)
+const N_SESSIONS = 6;               // 6 × 10h = 60h por nível · 41 níveis = 2460h total
 
 class PRNG {
   constructor(seed) { this.s = seed >>> 0 || 1; }
@@ -692,14 +698,12 @@ function simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold
   if (totalBoxes > 0) {
     for (const t in counter) dist[t] = +(counter[t] / totalBoxes * 100).toFixed(2);
   }
-  let pLeq10 = 0;
-  for (const t in counter) if (+t <= 10) pLeq10 += counter[t] / totalBoxes;
-  return { dist, avgTurns, xph: avgXph, pLeq10: pLeq10 * 100 };
+  return { dist, avgTurns, xph: avgXph };
 }
 
 function simulateAll(baseDmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags) {
   const result = {};
-  for (let inc = 0; inc <= 20; inc++) {
+  for (let inc = 0; inc < N_LEVELS; inc++) {
     const dmgs = baseDmgs.map(d => d + inc);
     const levelSeed = 12345 + inc * 31337;
     result[inc] = simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags, levelSeed);
@@ -707,8 +711,8 @@ function simulateAll(baseDmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitTh
   return result;
 }
 
-const LEVEL_COLORS = Array.from({length: 21}, (_, i) => {
-  const t = i / 20;
+const LEVEL_COLORS = Array.from({length: N_LEVELS}, (_, i) => {
+  const t = i / (N_LEVELS - 1);
   const r = Math.round(0x3B + t * (0xF5 - 0x3B));
   const g = Math.round(0x82 + t * (0xA6 - 0x82));
   const b = Math.round(0xF6 + t * (0x23 - 0xF6));
@@ -763,7 +767,7 @@ function runSim() {
   const dec = LANG === 'pt' ? ',' : '.';
   $('critBoostHint').textContent = (inp.critBoost / 100).toFixed(2).replace('.', dec);
   $('critFinal').textContent = (CRIT_BASE + inp.critBoost / 100).toFixed(2).replace('.', dec);
-  const totalHours = N_SESSIONS * SESSION_SECONDS / 3600 * 21;
+  const totalHours = N_SESSIONS * SESSION_SECONDS / 3600 * N_LEVELS;
   const locale = LANG === 'pt' ? 'pt-BR' : 'en-US';
   status.textContent = t('status_simulating').replace('{h}', totalHours.toLocaleString(locale));
   $('btnRun').disabled = true;
@@ -787,10 +791,9 @@ function drawMetrics() {
   const cur = cache[inc], ref = cache[0];
   $('metTurns').textContent = cur.avgTurns.toFixed(2);
   $('metXph').textContent = fmtN(cur.xph);
-  $('metProb').textContent = cur.pLeq10.toFixed(1) + '%';
   const turnsDelta = ref.avgTurns > 0 ? ((ref.avgTurns - cur.avgTurns) / ref.avgTurns) * 100 : 0;
   const xphDelta = ref.xph > 0 ? ((cur.xph - ref.xph) / ref.xph) * 100 : 0;
-  const probDelta = cur.pLeq10 - ref.pLeq10;
+  const absDiff = cur.xph - ref.xph;
   const baseLbl = t('base_level');
   const vsBase = t('vs_base');
   $('metTurnsDelta').textContent = inc === 0 ? baseLbl :
@@ -798,10 +801,8 @@ function drawMetrics() {
   $('metTurnsDelta').className = 'metric-delta ' + (inc > 0 && turnsDelta > 0.01 ? 'delta-pos' : 'delta-neu');
   $('metXphDelta').textContent = inc === 0 ? baseLbl : fmtDelta(xphDelta) + ' ' + vsBase;
   $('metXphDelta').className = 'metric-delta ' + (xphDelta > 0.01 ? 'delta-pos' : 'delta-neu');
-  $('metProbDelta').textContent = inc === 0 ? baseLbl :
-    (probDelta > 0.01 ? '+' + probDelta.toFixed(1) + ' pp' : vsBase);
-  $('metProbDelta').className = 'metric-delta ' + (probDelta > 0.01 ? 'delta-pos' : 'delta-neu');
-  const gain100h = (cur.xph - ref.xph) * 100;
+  $('metAbsDiff').textContent = inc === 0 ? '—' : (absDiff >= 0 ? '+' : '') + fmtN(absDiff);
+  const gain100h = absDiff * 100;
   $('metGain100').textContent = gain100h >= 0 ? '+' + fmtN(gain100h) : fmtN(gain100h);
 }
 
@@ -842,7 +843,7 @@ function drawCompare() {
 
 function drawEvol() {
   if (!cache) return;
-  const levels = Array.from({length: 21}, (_, i) => i);
+  const levels = Array.from({length: N_LEVELS}, (_, i) => i);
   const turnsData = levels.map(i => +cache[i].avgTurns.toFixed(3));
   const xphData = levels.map(i => Math.round(cache[i].xph));
   if (evolChart) evolChart.destroy();
@@ -884,18 +885,18 @@ function drawCurve() {
   if (!cache) return;
   const turns = allTurns(cache);
   const items = [];
-  for (let i = 0; i <= 20; i += 4) {
+  for (let i = 0; i < N_LEVELS; i += 8) {
     items.push('<span class="leg-item"><span class="leg-swatch" style="background:' + LEVEL_COLORS[i] + '"></span>+' + i + '</span>');
   }
   $('legendCurve').innerHTML = items.join('');
   if (curveChart) curveChart.destroy();
-  const datasets = Array.from({length: 21}, (_, i) => ({
+  const datasets = Array.from({length: N_LEVELS}, (_, i) => ({
     label: '+' + i,
     data: turns.map(t => cache[i].dist[t] || 0),
     borderColor: LEVEL_COLORS[i],
     backgroundColor: 'transparent',
-    borderWidth: i % 5 === 0 ? 2.5 : 1.2,
-    borderDash: i % 5 === 0 ? [] : [4, 3],
+    borderWidth: i % 10 === 0 ? 2.5 : 1.0,
+    borderDash: i % 10 === 0 ? [] : [4, 3],
     pointRadius: 0,
     tension: 0.4
   }));
@@ -923,27 +924,29 @@ function drawCurve() {
 
 function drawTable() {
   if (!cache) return;
-  const rows = [0, 5, 10, 15, 20];
+  const rows = [0, 5, 10, 15, 20, 25, 30, 35, 40];
   const ref = cache[0];
   let html = '<thead><tr>' +
     '<th>' + t('table_level') + '</th>' +
     '<th>' + t('table_turns') + '</th>' +
     '<th>' + t('table_xph') + '</th>' +
     '<th>' + t('table_delta') + '</th>' +
-    '<th>' + t('table_prob') + '</th>' +
+    '<th>' + t('table_abs_diff') + '</th>' +
     '<th>' + t('table_gain') + '</th>' +
     '</tr></thead><tbody>';
   rows.forEach(i => {
     const r = cache[i];
+    if (!r) return;
     const deltaPct = ref.xph > 0 ? ((r.xph - ref.xph) / ref.xph) * 100 : 0;
-    const gain100 = (r.xph - ref.xph) * 100;
+    const absDiff = r.xph - ref.xph;
+    const gain100 = absDiff * 100;
     const cls = i > 0 && deltaPct > 0.01 ? 'highlight' : '';
     html += '<tr class="' + cls + '">' +
       '<td>+' + i + '</td>' +
       '<td>' + r.avgTurns.toFixed(2) + '</td>' +
       '<td>' + fmtN(r.xph) + '</td>' +
       '<td>' + (i === 0 ? '—' : fmtDelta(deltaPct)) + '</td>' +
-      '<td>' + r.pLeq10.toFixed(1) + '%</td>' +
+      '<td>' + (i === 0 ? '—' : (absDiff >= 0 ? '+' : '') + fmtN(absDiff)) + '</td>' +
       '<td>' + (i === 0 ? '—' : (gain100 >= 0 ? '+' : '') + fmtN(gain100)) + '</td>' +
       '</tr>';
   });
@@ -979,6 +982,102 @@ sliderA.addEventListener('input', drawCompare);
 sliderB.addEventListener('input', drawCompare);
 $('btnRun').addEventListener('click', runSim);
 
+// ========== sistema de compartilhamento por URL ==========
+// Serializa todos os parâmetros do simulador em uma query string compacta.
+// Cada parâmetro usa uma chave curta para manter URLs legíveis.
+const URL_KEYS = {
+  d1: 'dmg1', d2: 'dmg2', d3: 'dmg3',
+  cd: 'charmDmg', cb: 'critBoost',
+  mh: 'mobHp', mx: 'mobXp',
+  bs: 'boxSize', et: 'exitThreshold',
+  lv: 'sliderDmg', la: 'sliderA', lb: 'sliderB'
+};
+
+function serializeState() {
+  const params = new URLSearchParams();
+  // inputs numéricos
+  Object.entries(URL_KEYS).forEach(([short, id]) => {
+    const el = $(id);
+    if (el) params.set(short, el.value);
+  });
+  // checkboxes (1 por flag)
+  let flags = '';
+  flags += cbCharm.checked ? '1' : '0';
+  flags += cbCrit.checked ? '1' : '0';
+  flags += cbInt.checked ? '1' : '0';
+  flags += cbVar.checked ? '1' : '0';
+  params.set('f', flags);
+  // idioma
+  params.set('l', LANG);
+  return params.toString();
+}
+
+function deserializeState() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.toString() === '') return false;
+  // inputs numéricos
+  Object.entries(URL_KEYS).forEach(([short, id]) => {
+    if (params.has(short)) {
+      const el = $(id);
+      if (el) el.value = params.get(short);
+    }
+  });
+  // checkboxes
+  if (params.has('f')) {
+    const flags = params.get('f');
+    cbCharm.checked = flags[0] === '1';
+    cbCrit.checked = flags[1] === '1';
+    cbInt.checked = flags[2] === '1';
+    cbVar.checked = flags[3] === '1';
+  }
+  // idioma
+  if (params.has('l')) {
+    const lang = params.get('l');
+    if (lang === 'pt' || lang === 'en') LANG = lang;
+  }
+  return true;
+}
+
+function copyShareLink() {
+  const qs = serializeState();
+  const base = window.location.origin + window.location.pathname;
+  const fullUrl = base + '?' + qs;
+  const btn = $('btnShare');
+  const originalText = btn.textContent;
+
+  const showCopied = () => {
+    btn.textContent = t('btn_share_copied');
+    setTimeout(() => { btn.textContent = t('btn_share'); }, 1800);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(fullUrl).then(showCopied).catch(() => {
+      // fallback se clipboard API falhar
+      fallbackCopy(fullUrl, showCopied);
+    });
+  } else {
+    fallbackCopy(fullUrl, showCopied);
+  }
+}
+
+function fallbackCopy(text, onDone) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); onDone(); }
+  catch (e) { prompt('Copie a URL:', text); }
+  document.body.removeChild(ta);
+}
+
+$('btnShare').addEventListener('click', copyShareLink);
+
+// ===== inicialização =====
+// Carrega estado da URL se houver, senão usa defaults
+const hasUrlState = deserializeState();
+if (hasUrlState) applyI18n();
 updateUI();
 runSim();
 </script>
