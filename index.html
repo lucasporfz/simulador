@@ -269,13 +269,18 @@ input[type="range"] { accent-color: var(--accent); }
   </div>
   <div class="input-card">
     <label data-i18n="label_boxSize">tamanho da box</label>
-    <input type="number" id="boxSize" value="8" min="1" max="20" step="1">
+    <input type="number" id="boxSize" value="8" min="0.1" max="20" step="0.1">
     <div class="hint" data-i18n="hint_boxSize">mobs por spawn</div>
   </div>
   <div class="input-card">
     <label data-i18n="label_exitThreshold">ponto de saída</label>
     <input type="number" id="exitThreshold" value="3" min="1" max="19" step="1">
     <div class="hint" data-i18n="hint_exitThreshold">inteligência: sai com ≤ N vivos</div>
+  </div>
+  <div class="input-card">
+    <label data-i18n="label_boxTime">tempo entre box (s)</label>
+    <input type="number" id="boxTime" value="6" min="0" max="60" step="0.5">
+    <div class="hint" data-i18n="hint_boxTime">troca sem intel / arraste com intel</div>
   </div>
 </div>
 
@@ -382,6 +387,8 @@ const I18N = {
     hint_boxSize: 'mobs por spawn',
     label_exitThreshold: 'ponto de saída',
     hint_exitThreshold: 'inteligência: sai com ≤ N vivos',
+    label_boxTime: 'tempo entre box (s)',
+    hint_boxTime: 'troca sem intel / arraste com intel',
 
     label_dmg1: 'dano ataque 1',
     hint_dmg1: 'turno 1 do ciclo',
@@ -460,6 +467,8 @@ const I18N = {
     hint_boxSize: 'mobs per spawn',
     label_exitThreshold: 'exit threshold',
     hint_exitThreshold: 'intelligence: leaves with ≤ N alive',
+    label_boxTime: 'box change time (s)',
+    hint_boxTime: 'walk time / drag duration',
 
     label_dmg1: 'attack damage 1',
     hint_dmg1: 'turn 1 of cycle',
@@ -562,12 +571,10 @@ const CHARM_RATE = 0.1;
 const CRIT_RATE = 0.1;
 const CRIT_BASE = 1.72;
 const TURN_DURATION = 2.25;
-const BOX_CHANGE_TIME = 3;
-const SPAWN_DURATION = 6;
 const SPAWN_CURVE = 2.4;
 const N_LEVELS = 41;                // +0 a +40
 const SESSION_SECONDS = 3600 * 10;  // 10h por sessão
-const N_SESSIONS = 6;               // 6 × 10h = 60h por nível · 41 níveis = 2460h total
+const N_SESSIONS = 60;              // 60 × 10h = 600h por nível · 41 níveis = 24.600h total
 
 class PRNG {
   constructor(seed) { this.s = seed >>> 0 || 1; }
@@ -577,16 +584,27 @@ class PRNG {
   }
 }
 
-function pPresent(elapsed) {
+function pPresent(elapsed, spawnDuration) {
   if (elapsed <= 0) return 0;
-  if (elapsed >= SPAWN_DURATION) return 1;
-  return 1 - Math.pow(1 - elapsed / SPAWN_DURATION, SPAWN_CURVE);
+  if (elapsed >= spawnDuration) return 1;
+  return 1 - Math.pow(1 - elapsed / spawnDuration, SPAWN_CURVE);
 }
 
-function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags, seconds) {
+function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, seconds) {
   // Aleatoriedade total: uma PRNG única consumida em ordem, como o jogo real.
   // Nenhuma manipulação para manter sequências entre níveis de dano.
   const rng = new PRNG(seed);
+
+  // boxSize pode ser decimal (ex: 8.5). Sorteamos por box: piso ou teto,
+  // com probabilidade igual à parte fracionária.
+  // Ex: boxSize=8.5 → 50% das boxes têm 8 mobs, 50% têm 9
+  // Ex: boxSize=8.7 → 30% têm 8, 70% têm 9
+  const boxFloor = Math.floor(boxSize);
+  const boxFrac = boxSize - boxFloor;
+  function rollBoxSize() {
+    if (boxFrac === 0) return boxFloor;
+    return rng.next() < boxFrac ? boxFloor + 1 : boxFloor;
+  }
 
   let timeElapsed = 0;
   let ac = 0;
@@ -599,13 +617,15 @@ function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitT
   let spawning = [];
   let spawnTimer = 0;
 
-  for (let i = 0; i < boxSize; i++) mobHps.push(mobHp);
+  let firstBoxN = rollBoxSize();
+  for (let i = 0; i < firstBoxN; i++) mobHps.push(mobHp);
 
   while (timeElapsed < seconds) {
     const aliveTotal = mobHps.length + spawning.length;
 
     if (flags.intel && aliveTotal <= exitThreshold && spawning.length === 0) {
-      spawning = new Array(boxSize).fill(mobHp);
+      const nextN = rollBoxSize();
+      spawning = new Array(nextN).fill(mobHp);
       spawnTimer = 0;
       turnCounts.push(turnsThisBox);
       turnsThisBox = 0;
@@ -618,9 +638,10 @@ function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitT
       turnsThisBox = 0;
       boxCount++;
       mobHps = [];
-      for (let i = 0; i < boxSize; i++) mobHps.push(mobHp);
+      const nextN = rollBoxSize();
+      for (let i = 0; i < nextN; i++) mobHps.push(mobHp);
       spawning = [];
-      timeElapsed += BOX_CHANGE_TIME;
+      timeElapsed += boxChangeTime;
       if (timeElapsed >= seconds) break;
       continue;
     }
@@ -631,8 +652,8 @@ function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitT
 
     if (spawning.length > 0) {
       spawnTimer += TURN_DURATION;
-      const pNow = pPresent(spawnTimer);
-      const pPrev = pPresent(spawnTimer - TURN_DURATION);
+      const pNow = pPresent(spawnTimer, boxChangeTime);
+      const pPrev = pPresent(spawnTimer - TURN_DURATION, boxChangeTime);
       const pCond = pPrev >= 1 ? 1 : (pNow - pPrev) / (1 - pPrev);
       const stillSpawning = [];
       for (const hp of spawning) {
@@ -677,14 +698,14 @@ function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitT
   return { xph, turnCounts, totalKills };
 }
 
-function simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags, levelSeed) {
+function simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, levelSeed) {
   const counter = {};
   let totalXph = 0;
   let totalBoxes = 0;
   let totalTurnsAccum = 0;
   for (let s = 0; s < N_SESSIONS; s++) {
     const sessionSeed = levelSeed * 104729 + s * 7919;
-    const res = simSession(sessionSeed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags, SESSION_SECONDS);
+    const res = simSession(sessionSeed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, SESSION_SECONDS);
     totalXph += res.xph;
     totalBoxes += res.turnCounts.length;
     for (const t of res.turnCounts) {
@@ -701,12 +722,14 @@ function simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold
   return { dist, avgTurns, xph: avgXph };
 }
 
-function simulateAll(baseDmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags) {
+function simulateAll(baseDmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, runSeed) {
   const result = {};
   for (let inc = 0; inc < N_LEVELS; inc++) {
     const dmgs = baseDmgs.map(d => d + inc);
-    const levelSeed = 12345 + inc * 31337;
-    result[inc] = simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, flags, levelSeed);
+    // Compõe seed do nível com a seed da execução atual — assim cada clique em "recalcular"
+    // gera uma nova sequência de eventos aleatórios, sem nenhuma correlação entre execuções
+    const levelSeed = (runSeed ^ (inc * 31337)) >>> 0;
+    result[inc] = simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, levelSeed);
   }
   return result;
 }
@@ -739,8 +762,9 @@ function getInputs() {
     critBoost: +$('critBoost').value || 0,
     mobHp: +$('mobHp').value || 8000,
     mobXp: +$('mobXp').value || 10000,
-    boxSize: Math.max(1, +$('boxSize').value || 8),
-    exitThreshold: Math.max(1, +$('exitThreshold').value || 3)
+    boxSize: Math.max(0.1, parseFloat($('boxSize').value) || 8),
+    exitThreshold: Math.max(1, +$('exitThreshold').value || 3),
+    boxChangeTime: Math.max(0, parseFloat($('boxTime').value) || 6)
   };
 }
 function allTurns(cache) {
@@ -773,7 +797,11 @@ function runSim() {
   $('btnRun').disabled = true;
   setTimeout(() => {
     const t0 = performance.now();
-    cache = simulateAll(inp.baseDmgs, inp.charmDmg, critMult, inp.mobHp, inp.mobXp, inp.boxSize, inp.exitThreshold, flags);
+    // Seed nova a cada execução — garante que cada clique em "recalcular" gera
+    // sequências aleatórias totalmente diferentes, permitindo verificar que o
+    // padrão de ganho se mantém consistente entre execuções
+    const runSeed = (Math.random() * 0xFFFFFFFF) >>> 0;
+    cache = simulateAll(inp.baseDmgs, inp.charmDmg, critMult, inp.mobHp, inp.mobXp, inp.boxSize, inp.exitThreshold, inp.boxChangeTime, flags, runSeed);
     const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
     status.textContent = t('status_done')
       .replace('{n}', N_SESSIONS)
@@ -974,7 +1002,7 @@ function updateUI() {
 [cbCharm, cbCrit, cbInt, cbVar].forEach(cb => {
   cb.addEventListener('change', () => { updateUI(); runSim(); });
 });
-['dmg1', 'dmg2', 'dmg3', 'charmDmg', 'critBoost', 'mobHp', 'mobXp', 'boxSize', 'exitThreshold'].forEach(id => {
+['dmg1', 'dmg2', 'dmg3', 'charmDmg', 'critBoost', 'mobHp', 'mobXp', 'boxSize', 'exitThreshold', 'boxTime'].forEach(id => {
   $(id).addEventListener('change', runSim);
 });
 slider.addEventListener('input', () => { updateUI(); drawMetrics(); });
@@ -989,7 +1017,7 @@ const URL_KEYS = {
   d1: 'dmg1', d2: 'dmg2', d3: 'dmg3',
   cd: 'charmDmg', cb: 'critBoost',
   mh: 'mobHp', mx: 'mobXp',
-  bs: 'boxSize', et: 'exitThreshold',
+  bs: 'boxSize', et: 'exitThreshold', bt: 'boxTime',
   lv: 'sliderDmg', la: 'sliderA', lb: 'sliderB'
 };
 
