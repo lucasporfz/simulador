@@ -23,7 +23,7 @@ body {
   padding: 20px;
   font-size: 14px;
 }
-.container { max-width: 1100px; margin: 0 auto; }
+.container { max-width: 1100px; margin: 0 auto; position: relative; }
 h1 { font-size: 22px; font-weight: 500; margin: 0 0 20px; }
 h3 {
   font-size: 14px;
@@ -171,8 +171,10 @@ button {
   color: #0A1628;
   cursor: pointer;
   font-weight: 500;
+  transition: opacity 0.15s;
 }
 button:hover { filter: brightness(1.1); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 .compare-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .resume-table {
   width: 100%;
@@ -201,6 +203,7 @@ button:hover { filter: brightness(1.1); }
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 8px;
+  position: relative;
 }
 input[type="range"] { accent-color: var(--accent); }
 
@@ -351,6 +354,83 @@ input[type="range"] { accent-color: var(--accent); }
   padding-left: 20px;
 }
 .guide-content li { margin: 4px 0; }
+
+/* ====== Loading Overlay ====== */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 22, 40, 0.85);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.loading-overlay.active {
+  display: flex;
+  pointer-events: auto;
+  opacity: 1;
+}
+.loading-card {
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-width: 280px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  text-align: center;
+}
+.loading-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.progress-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 0.5px solid var(--border);
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #00E5B0);
+  width: 0%;
+  transition: width 0.15s ease-out;
+  border-radius: 3px;
+}
+
+/* Quando a UI está calculando, sutilmente atenua os controles */
+.calculating .metrics-grid,
+.calculating .chart-container,
+.calculating .resume-table {
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
 </style>
 </head>
 <body>
@@ -485,6 +565,18 @@ input[type="range"] { accent-color: var(--accent); }
   <table class="resume-table" id="resumeTable"></table>
 </div>
 
+<!-- Loading overlay (preso ao container, cobre toda a área) -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-card">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Simulando hunts...</div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="loading-sub" id="loadingSub">0 / 41 níveis</div>
+  </div>
+</div>
+
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -530,8 +622,11 @@ const I18N = {
     btn_share_copied: 'link copiado!',
     btn_guide: 'guia',
     status_ready: 'pronto',
-    status_simulating: 'simulando {h}h totais (pode levar alguns segundos)...',
+    status_simulating: 'simulando...',
     status_done: '{n} × {h}h × 41 níveis = {total}h · {elapsed}s',
+
+    loading_text: 'Simulando hunts...',
+    loading_progress: '{done} / {total} níveis',
 
     met_turns: 'turnos médios por box',
     met_xph: 'XP/h estimado',
@@ -611,8 +706,11 @@ const I18N = {
     btn_share_copied: 'link copied!',
     btn_guide: 'guide',
     status_ready: 'ready',
-    status_simulating: 'simulating {h}h total (may take a few seconds)...',
+    status_simulating: 'simulating...',
     status_done: '{n} × {h}h × 41 levels = {total}h · {elapsed}s',
+
+    loading_text: 'Simulating hunts...',
+    loading_progress: '{done} / {total} levels',
 
     met_turns: 'average turns per box',
     met_xph: 'estimated XP/h',
@@ -667,10 +765,8 @@ function applyI18n() {
   document.title = t('title');
   document.getElementById('langPt').classList.toggle('active', LANG === 'pt');
   document.getElementById('langEn').classList.toggle('active', LANG === 'en');
-  // re-render dinâmicos
   if (typeof updateUI === 'function') updateUI();
   if (typeof drawAll === 'function' && typeof cache !== 'undefined' && cache) drawAll();
-  // atualizar status se já tiver sido calculado
   const st = document.getElementById('simStatus');
   if (st && typeof cache !== 'undefined' && cache && typeof N_SESSIONS !== 'undefined') {
     const totalHours = N_SESSIONS * SESSION_SECONDS / 3600 * N_LEVELS;
@@ -679,9 +775,8 @@ function applyI18n() {
       .replace('{n}', N_SESSIONS)
       .replace('{h}', SESSION_SECONDS / 3600)
       .replace('{total}', totalHours.toLocaleString(locale))
-      .replace('{elapsed}', '—');
+      .replace('{elapsed}', lastElapsed || '—');
   }
-  // Atualizar guia se estiver aberto
   const modal = document.getElementById('guideModal');
   if (modal && modal.classList.contains('open')) {
     document.getElementById('guideContent').innerHTML = GUIDE[LANG];
@@ -692,81 +787,103 @@ document.getElementById('langPt').addEventListener('click', () => { LANG = 'pt';
 document.getElementById('langEn').addEventListener('click', () => { LANG = 'en'; applyI18n(); });
 </script>
 
-<script>
+<!-- ========================================================================
+     WEB WORKER (inline via Blob)
+     Toda a simulação roda numa thread separada, mantendo a UI 100% responsiva.
+     O worker reporta progresso a cada nível processado (1 de 41, 2 de 41, ...)
+     ======================================================================== -->
+<script id="simWorker" type="javascript/worker">
+'use strict';
+
 const CHARM_RATE = 0.1;
 const CRIT_RATE = 0.1;
-const CRIT_BASE = 1.72;
 const TURN_DURATION = 2.25;
 const SPAWN_CURVE = 2.4;
-const N_LEVELS = 41;                // +0 a +40
-const SESSION_SECONDS = 3600 * 10;  // 10h por sessão
-const N_SESSIONS = 60;              // 60 × 10h = 600h por nível · 41 níveis = 24.600h total
 
-class PRNG {
-  constructor(seed) { this.s = seed >>> 0 || 1; }
-  next() {
-    this.s = (this.s * 1664525 + 1013904223) >>> 0;
-    return this.s / 4294967296;
+// PRNG inline (LCG numerix-recipes) — ultra-rápido
+function makeRng(seed) {
+  let s = (seed >>> 0) || 1;
+  return function() {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+// Lookup table de pPresent: como spawnDuration (boxChangeTime) é fixo dentro
+// de uma execução e elapsed avança em passos fixos de TURN_DURATION, podemos
+// pré-calcular pPresent em todos os pontos discretos que vamos consultar.
+function buildPresentTable(spawnDuration) {
+  if (spawnDuration <= 0) return null;
+  // Quantos turnos cabem no intervalo de spawn
+  const maxSteps = Math.ceil(spawnDuration / TURN_DURATION) + 2;
+  const tbl = new Float64Array(maxSteps + 1);
+  for (let i = 0; i <= maxSteps; i++) {
+    const elapsed = i * TURN_DURATION;
+    if (elapsed <= 0) tbl[i] = 0;
+    else if (elapsed >= spawnDuration) tbl[i] = 1;
+    else tbl[i] = 1 - Math.pow(1 - elapsed / spawnDuration, SPAWN_CURVE);
   }
+  return tbl;
 }
 
-function pPresent(elapsed, spawnDuration) {
-  if (elapsed <= 0) return 0;
-  if (elapsed >= spawnDuration) return 1;
-  return 1 - Math.pow(1 - elapsed / spawnDuration, SPAWN_CURVE);
-}
+function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, seconds, presentTbl) {
+  const rng = makeRng(seed);
 
-function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, seconds) {
-  // Aleatoriedade total: uma PRNG única consumida em ordem, como o jogo real.
-  // Nenhuma manipulação para manter sequências entre níveis de dano.
-  const rng = new PRNG(seed);
-
-  // boxSize pode ser decimal (ex: 8.5). Sorteamos por box: piso ou teto,
-  // com probabilidade igual à parte fracionária.
-  // Ex: boxSize=8.5 → 50% das boxes têm 8 mobs, 50% têm 9
-  // Ex: boxSize=8.7 → 30% têm 8, 70% têm 9
   const boxFloor = Math.floor(boxSize);
   const boxFrac = boxSize - boxFloor;
-  function rollBoxSize() {
-    if (boxFrac === 0) return boxFloor;
-    return rng.next() < boxFrac ? boxFloor + 1 : boxFloor;
-  }
+
+  // Capacidade máxima de mobs simultaneamente (alive + spawning) — usado pra dimensionar buffers
+  const maxMobs = (boxFloor + 2) * 2;
+
+  // Buffers tipados — alive e spawning são gerenciados in-place via length
+  const aliveHp = new Float32Array(maxMobs);
+  let aliveLen = 0;
+  const spawnHp = new Float32Array(maxMobs);
+  let spawnLen = 0;
 
   let timeElapsed = 0;
   let ac = 0;
   let totalKills = 0;
-  let boxCount = 0;
   let turnsThisBox = 0;
-  const turnCounts = [];
+  // Como turnos por box raramente passa de algumas dezenas, pré-aloca um array Int
+  // grande e usa um índice em vez de push (evita realocações)
+  const turnCountsBuf = new Int32Array(Math.ceil(seconds / TURN_DURATION / 2) + 100);
+  let turnCountsLen = 0;
 
-  let mobHps = [];
-  let spawning = [];
-  let spawnTimer = 0;
+  // Spawn da primeira box
+  let firstN;
+  if (boxFrac === 0) firstN = boxFloor;
+  else firstN = rng() < boxFrac ? boxFloor + 1 : boxFloor;
+  for (let i = 0; i < firstN; i++) aliveHp[aliveLen++] = mobHp;
 
-  let firstBoxN = rollBoxSize();
-  for (let i = 0; i < firstBoxN; i++) mobHps.push(mobHp);
+  let spawnStep = 0; // índice do passo de spawn (em múltiplos de TURN_DURATION)
 
   while (timeElapsed < seconds) {
-    const aliveTotal = mobHps.length + spawning.length;
+    const aliveTotal = aliveLen + spawnLen;
 
-    if (flags.intel && aliveTotal <= exitThreshold && spawning.length === 0) {
-      const nextN = rollBoxSize();
-      spawning = new Array(nextN).fill(mobHp);
-      spawnTimer = 0;
-      turnCounts.push(turnsThisBox);
+    if (flags.intel && aliveTotal <= exitThreshold && spawnLen === 0) {
+      // Inicia transição para próxima box
+      let nextN;
+      if (boxFrac === 0) nextN = boxFloor;
+      else nextN = rng() < boxFrac ? boxFloor + 1 : boxFloor;
+      spawnLen = 0;
+      for (let i = 0; i < nextN; i++) spawnHp[spawnLen++] = mobHp;
+      spawnStep = 0;
+      turnCountsBuf[turnCountsLen++] = turnsThisBox;
       turnsThisBox = 0;
-      boxCount++;
       continue;
     }
 
     if (aliveTotal === 0) {
-      turnCounts.push(turnsThisBox);
+      turnCountsBuf[turnCountsLen++] = turnsThisBox;
       turnsThisBox = 0;
-      boxCount++;
-      mobHps = [];
-      const nextN = rollBoxSize();
-      for (let i = 0; i < nextN; i++) mobHps.push(mobHp);
-      spawning = [];
+      // sem intel: walking time + spawn fresh
+      let nextN;
+      if (boxFrac === 0) nextN = boxFloor;
+      else nextN = rng() < boxFrac ? boxFloor + 1 : boxFloor;
+      aliveLen = 0;
+      for (let i = 0; i < nextN; i++) aliveHp[aliveLen++] = mobHp;
+      spawnLen = 0;
       timeElapsed += boxChangeTime;
       if (timeElapsed >= seconds) break;
       continue;
@@ -776,90 +893,328 @@ function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitT
     timeElapsed += TURN_DURATION;
     if (timeElapsed > seconds) break;
 
-    if (spawning.length > 0) {
-      spawnTimer += TURN_DURATION;
-      const pNow = pPresent(spawnTimer, boxChangeTime);
-      const pPrev = pPresent(spawnTimer - TURN_DURATION, boxChangeTime);
+    // Resolução de spawn: mobs em transição podem aparecer neste turno
+    if (spawnLen > 0 && presentTbl) {
+      spawnStep++;
+      const pNow = spawnStep < presentTbl.length ? presentTbl[spawnStep] : 1;
+      const pPrev = (spawnStep - 1) >= 0 && (spawnStep - 1) < presentTbl.length ? presentTbl[spawnStep - 1] : 0;
       const pCond = pPrev >= 1 ? 1 : (pNow - pPrev) / (1 - pPrev);
-      const stillSpawning = [];
-      for (const hp of spawning) {
-        if (rng.next() < pCond) mobHps.push(hp);
-        else stillSpawning.push(hp);
+      // Compactação in-place: mantém em spawnHp só os que ainda não apareceram
+      let writeIdx = 0;
+      for (let i = 0; i < spawnLen; i++) {
+        if (rng() < pCond) {
+          // apareceu — vai pra alive
+          aliveHp[aliveLen++] = spawnHp[i];
+        } else {
+          spawnHp[writeIdx++] = spawnHp[i];
+        }
       }
-      spawning = stillSpawning;
+      spawnLen = writeIdx;
     }
 
-    if (mobHps.length === 0) { ac++; continue; }
+    if (aliveLen === 0) { ac++; continue; }
 
+    // Charm: cada mob individualmente pode ativar
     if (flags.charm) {
-      for (let i = 0; i < mobHps.length; i++) {
-        if (mobHps[i] > 0 && rng.next() < CHARM_RATE) {
-          mobHps[i] -= charmDmg;
-          if (mobHps[i] < 0) mobHps[i] = 0;
+      for (let i = 0; i < aliveLen; i++) {
+        if (aliveHp[i] > 0 && rng() < CHARM_RATE) {
+          aliveHp[i] -= charmDmg;
+          if (aliveHp[i] < 0) aliveHp[i] = 0;
         }
       }
     }
 
+    // Dano base do turno
     let base = dmgs[ac % 3];
-    if (flags.var) base *= 0.8 + rng.next() * 0.4;
-    if (rng.next() < CRIT_RATE) base *= critMult;
+    if (flags.var) base *= 0.8 + rng() * 0.4;
+    if (rng() < CRIT_RATE) base *= critMult;
 
-    for (let i = 0; i < mobHps.length; i++) {
-      if (mobHps[i] > 0) {
-        mobHps[i] -= base;
-        if (mobHps[i] <= 0) mobHps[i] = 0;
+    // Aplica em todos + compactação in-place
+    let writeIdx = 0;
+    for (let i = 0; i < aliveLen; i++) {
+      let hp = aliveHp[i];
+      if (hp > 0) {
+        hp -= base;
+        if (hp <= 0) {
+          totalKills++;
+          continue; // morto, não escreve de volta
+        }
+      } else {
+        // já estava morto (charm matou) — conta o kill
+        totalKills++;
+        continue;
       }
+      aliveHp[writeIdx++] = hp;
     }
-
-    const newHps = [];
-    for (const hp of mobHps) {
-      if (hp === 0) totalKills++;
-      else newHps.push(hp);
-    }
-    mobHps = newHps;
+    aliveLen = writeIdx;
     ac++;
   }
 
   const xph = totalKills * mobXp / (seconds / 3600);
-  return { xph, turnCounts, totalKills };
+  return { xph, turnCounts: turnCountsBuf.subarray(0, turnCountsLen) };
 }
 
-function simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, levelSeed) {
-  const counter = {};
+function simulateLevel(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, levelSeed, nSessions, sessionSeconds, presentTbl) {
+  const counter = Object.create(null);
   let totalXph = 0;
   let totalBoxes = 0;
   let totalTurnsAccum = 0;
-  for (let s = 0; s < N_SESSIONS; s++) {
-    const sessionSeed = levelSeed * 104729 + s * 7919;
-    const res = simSession(sessionSeed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, SESSION_SECONDS);
+
+  for (let s = 0; s < nSessions; s++) {
+    const sessionSeed = (Math.imul(levelSeed, 104729) + s * 7919) >>> 0;
+    const res = simSession(sessionSeed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, sessionSeconds, presentTbl);
     totalXph += res.xph;
-    totalBoxes += res.turnCounts.length;
-    for (const t of res.turnCounts) {
-      counter[t] = (counter[t] || 0) + 1;
-      totalTurnsAccum += t;
+    const tc = res.turnCounts;
+    totalBoxes += tc.length;
+    for (let i = 0; i < tc.length; i++) {
+      const v = tc[i];
+      counter[v] = (counter[v] || 0) + 1;
+      totalTurnsAccum += v;
     }
   }
-  const avgXph = totalXph / N_SESSIONS;
+  const avgXph = totalXph / nSessions;
   const avgTurns = totalBoxes > 0 ? totalTurnsAccum / totalBoxes : 0;
   const dist = {};
   if (totalBoxes > 0) {
-    for (const t in counter) dist[t] = +(counter[t] / totalBoxes * 100).toFixed(2);
+    const inv = 100 / totalBoxes;
+    for (const k in counter) {
+      dist[k] = +(counter[k] * inv).toFixed(2);
+    }
   }
   return { dist, avgTurns, xph: avgXph };
 }
 
-function simulateAll(baseDmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, runSeed) {
+// O worker agora processa apenas os níveis listados em `levels` (array de ints).
+// Isso permite distribuir os 41 níveis entre múltiplos workers paralelos.
+// IMPORTANTE: a simulação de cada nível é byte-por-byte idêntica à versão serial,
+// porque o levelSeed depende só de runSeed e inc — não da ordem de processamento.
+self.onmessage = function(e) {
+  const cfg = e.data;
+  const {
+    baseDmgs, charmDmg, critMult, mobHp, mobXp,
+    boxSize, exitThreshold, boxChangeTime, flags,
+    runSeed, levels, nSessions, sessionSeconds
+  } = cfg;
+
+  const presentTbl = buildPresentTable(boxChangeTime);
+
   const result = {};
-  for (let inc = 0; inc < N_LEVELS; inc++) {
-    const dmgs = baseDmgs.map(d => d + inc);
-    // Compõe seed do nível com a seed da execução atual — assim cada clique em "recalcular"
-    // gera uma nova sequência de eventos aleatórios, sem nenhuma correlação entre execuções
+  for (let i = 0; i < levels.length; i++) {
+    const inc = levels[i];
+    const dmgs = [baseDmgs[0] + inc, baseDmgs[1] + inc, baseDmgs[2] + inc];
     const levelSeed = (runSeed ^ (inc * 31337)) >>> 0;
-    result[inc] = simulate(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, levelSeed);
+    result[inc] = simulateLevel(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, levelSeed, nSessions, sessionSeconds, presentTbl);
+    self.postMessage({ type: 'progress', level: inc });
   }
-  return result;
+  self.postMessage({ type: 'done', result });
+};
+</script>
+
+<script>
+// ========== Constantes (expostas pro código UI) ==========
+const CRIT_BASE = 1.72;
+const N_LEVELS = 41;
+const SESSION_SECONDS = 3600 * 10;
+const N_SESSIONS = 60;
+
+// ========== Setup do pool de Workers ==========
+const workerSource = document.getElementById('simWorker').textContent;
+// Tenta data: URL, mas se falhar (preview do Claude), usa fallback inline
+let workerUrl = null;
+let USE_WORKERS = true;
+
+try {
+  workerUrl = 'data:application/javascript;base64,' + btoa(unescape(encodeURIComponent(workerSource)));
+  // Testa se consegue criar worker
+  const testWorker = new Worker(workerUrl);
+  testWorker.terminate();
+} catch (e) {
+  console.warn('Workers não disponíveis, usando fallback inline:', e.message);
+  USE_WORKERS = false;
 }
 
+// Número de workers: 1 por core, mas no máximo N_LEVELS (41) e mínimo 1.
+const HW_CORES = (navigator.hardwareConcurrency || 4);
+const N_WORKERS = USE_WORKERS ? Math.max(1, Math.min(N_LEVELS, HW_CORES - 1)) : 1;
+
+// Pool de workers — recriado a cada runSim pra evitar race conditions
+let workerPool = [];
+function createWorkerPool() {
+  workerPool.forEach(w => w.terminate());
+  workerPool = [];
+  if (!USE_WORKERS) return; // fallback inline não precisa de pool
+  for (let i = 0; i < N_WORKERS; i++) {
+    workerPool.push(new Worker(workerUrl));
+  }
+}
+
+// Distribui os níveis entre os workers em round-robin.
+function partitionLevels(nLevels, nWorkers) {
+  const buckets = Array.from({length: nWorkers}, () => []);
+  for (let i = 0; i < nLevels; i++) {
+    buckets[i % nWorkers].push(i);
+  }
+  return buckets;
+}
+
+// ========== Fallback: simulação inline (sem workers) ==========
+// Cópia da lógica do worker, rodando na main thread com yields pra não travar UI
+function runSimInline(config, onProgress) {
+  const { baseDmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, runSeed } = config;
+  
+  // Importa as funções do worker inline
+  const CHARM_RATE = 0.1, CRIT_RATE = 0.1, TURN_DURATION = 2.25, SPAWN_CURVE = 2.4;
+  
+  function makeRng(seed) {
+    let s = (seed >>> 0) || 1;
+    return function() {
+      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+  }
+  
+  function buildPresentTable(spawnDuration) {
+    if (spawnDuration <= 0) return null;
+    const maxSteps = Math.ceil(spawnDuration / TURN_DURATION) + 2;
+    const tbl = new Float64Array(maxSteps + 1);
+    for (let i = 0; i <= maxSteps; i++) {
+      const elapsed = i * TURN_DURATION;
+      if (elapsed <= 0) tbl[i] = 0;
+      else if (elapsed >= spawnDuration) tbl[i] = 1;
+      else tbl[i] = 1 - Math.pow(1 - elapsed / spawnDuration, SPAWN_CURVE);
+    }
+    return tbl;
+  }
+  
+  function simSession(seed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, seconds, presentTbl) {
+    const rng = makeRng(seed);
+    const boxFloor = Math.floor(boxSize), boxFrac = boxSize - boxFloor;
+    const maxMobs = (boxFloor + 2) * 2;
+    const aliveHp = new Float32Array(maxMobs);
+    let aliveLen = 0;
+    const spawnHp = new Float32Array(maxMobs);
+    let spawnLen = 0;
+    let timeElapsed = 0, ac = 0, totalKills = 0, turnsThisBox = 0;
+    const turnCountsBuf = new Int32Array(Math.ceil(seconds / TURN_DURATION / 2) + 100);
+    let turnCountsLen = 0;
+    
+    let firstN = boxFrac === 0 ? boxFloor : (rng() < boxFrac ? boxFloor + 1 : boxFloor);
+    for (let i = 0; i < firstN; i++) aliveHp[aliveLen++] = mobHp;
+    let spawnStep = 0;
+    
+    while (timeElapsed < seconds) {
+      const aliveTotal = aliveLen + spawnLen;
+      if (flags.intel && aliveTotal <= exitThreshold && spawnLen === 0) {
+        let nextN = boxFrac === 0 ? boxFloor : (rng() < boxFrac ? boxFloor + 1 : boxFloor);
+        spawnLen = 0;
+        for (let i = 0; i < nextN; i++) spawnHp[spawnLen++] = mobHp;
+        spawnStep = 0;
+        turnCountsBuf[turnCountsLen++] = turnsThisBox;
+        turnsThisBox = 0;
+        continue;
+      }
+      if (aliveTotal === 0) {
+        turnCountsBuf[turnCountsLen++] = turnsThisBox;
+        turnsThisBox = 0;
+        let nextN = boxFrac === 0 ? boxFloor : (rng() < boxFrac ? boxFloor + 1 : boxFloor);
+        aliveLen = 0;
+        for (let i = 0; i < nextN; i++) aliveHp[aliveLen++] = mobHp;
+        spawnLen = 0;
+        timeElapsed += boxChangeTime;
+        if (timeElapsed >= seconds) break;
+        continue;
+      }
+      turnsThisBox++;
+      timeElapsed += TURN_DURATION;
+      if (timeElapsed > seconds) break;
+      
+      if (spawnLen > 0 && presentTbl) {
+        spawnStep++;
+        const pNow = spawnStep < presentTbl.length ? presentTbl[spawnStep] : 1;
+        const pPrev = (spawnStep - 1) >= 0 && (spawnStep - 1) < presentTbl.length ? presentTbl[spawnStep - 1] : 0;
+        const pCond = pPrev >= 1 ? 1 : (pNow - pPrev) / (1 - pPrev);
+        let writeIdx = 0;
+        for (let i = 0; i < spawnLen; i++) {
+          if (rng() < pCond) aliveHp[aliveLen++] = spawnHp[i];
+          else spawnHp[writeIdx++] = spawnHp[i];
+        }
+        spawnLen = writeIdx;
+      }
+      if (aliveLen === 0) { ac++; continue; }
+      if (flags.charm) {
+        for (let i = 0; i < aliveLen; i++) {
+          if (aliveHp[i] > 0 && rng() < CHARM_RATE) {
+            aliveHp[i] -= charmDmg;
+            if (aliveHp[i] < 0) aliveHp[i] = 0;
+          }
+        }
+      }
+      let base = dmgs[ac % 3];
+      if (flags.var) base *= 0.8 + rng() * 0.4;
+      if (rng() < CRIT_RATE) base *= critMult;
+      let writeIdx = 0;
+      for (let i = 0; i < aliveLen; i++) {
+        let hp = aliveHp[i];
+        if (hp > 0) {
+          hp -= base;
+          if (hp <= 0) { totalKills++; continue; }
+        } else { totalKills++; continue; }
+        aliveHp[writeIdx++] = hp;
+      }
+      aliveLen = writeIdx;
+      ac++;
+    }
+    const xph = totalKills * mobXp / (seconds / 3600);
+    return { xph, turnCounts: turnCountsBuf.subarray(0, turnCountsLen) };
+  }
+  
+  function simulateLevel(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, levelSeed, nSessions, sessionSeconds, presentTbl) {
+    const counter = Object.create(null);
+    let totalXph = 0, totalBoxes = 0, totalTurnsAccum = 0;
+    for (let s = 0; s < nSessions; s++) {
+      const sessionSeed = (Math.imul(levelSeed, 104729) + s * 7919) >>> 0;
+      const res = simSession(sessionSeed, dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, sessionSeconds, presentTbl);
+      totalXph += res.xph;
+      const tc = res.turnCounts;
+      totalBoxes += tc.length;
+      for (let i = 0; i < tc.length; i++) {
+        const v = tc[i];
+        counter[v] = (counter[v] || 0) + 1;
+        totalTurnsAccum += v;
+      }
+    }
+    const avgXph = totalXph / N_SESSIONS;
+    const avgTurns = totalBoxes > 0 ? totalTurnsAccum / totalBoxes : 0;
+    const dist = {};
+    if (totalBoxes > 0) {
+      const inv = 100 / totalBoxes;
+      for (const k in counter) dist[k] = +(counter[k] * inv).toFixed(2);
+    }
+    return { dist, avgTurns, xph: avgXph };
+  }
+  
+  // Processa todos os níveis com yield a cada 3 níveis pra não travar UI
+  return new Promise(resolve => {
+    const presentTbl = buildPresentTable(boxChangeTime);
+    const result = {};
+    let inc = 0;
+    
+    function processChunk() {
+      const end = Math.min(inc + 3, N_LEVELS);
+      for (; inc < end; inc++) {
+        const dmgs = [baseDmgs[0] + inc, baseDmgs[1] + inc, baseDmgs[2] + inc];
+        const levelSeed = (runSeed ^ (inc * 31337)) >>> 0;
+        result[inc] = simulateLevel(dmgs, charmDmg, critMult, mobHp, mobXp, boxSize, exitThreshold, boxChangeTime, flags, levelSeed, N_SESSIONS, SESSION_SECONDS, presentTbl);
+        onProgress(inc + 1, N_LEVELS);
+      }
+      if (inc < N_LEVELS) setTimeout(processChunk, 0);
+      else resolve(result);
+    }
+    processChunk();
+  });
+}
+
+// ========== Cores ==========
 const LEVEL_COLORS = Array.from({length: N_LEVELS}, (_, i) => {
   const t = i / (N_LEVELS - 1);
   const r = Math.round(0x3B + t * (0xF5 - 0x3B));
@@ -873,6 +1228,13 @@ const cbCharm = $('cb-charm'), cbCrit = $('cb-crit'), cbInt = $('cb-int'), cbVar
 const slider = $('sliderDmg'), sliderA = $('sliderA'), sliderB = $('sliderB');
 const lblDmg = $('lblDmg'), lblA = $('lblA'), lblB = $('lblB');
 const cfgLbl = $('cfgLabel'), status = $('simStatus');
+const loadingOverlay = $('loadingOverlay');
+const progressBar = $('progressBar');
+const loadingText = $('loadingText');
+const loadingSub = $('loadingSub');
+const container = document.querySelector('.container');
+
+let lastElapsed = null;
 
 function getFlags() {
   return { charm: cbCharm.checked, crit: cbCrit.checked, intel: cbInt.checked, var: cbVar.checked };
@@ -910,6 +1272,26 @@ function fmtDelta(pct) {
 
 let cache = null, compareChart = null, evolChart = null, curveChart = null;
 
+// ========== Loading helpers ==========
+function showLoading() {
+  loadingOverlay.classList.add('active');
+  container.classList.add('calculating');
+  loadingText.textContent = t('loading_text');
+  setProgress(0, N_LEVELS);
+}
+function hideLoading() {
+  loadingOverlay.classList.remove('active');
+  container.classList.remove('calculating');
+}
+function setProgress(done, total) {
+  const pct = total > 0 ? (done / total) * 100 : 0;
+  progressBar.style.width = pct.toFixed(1) + '%';
+  loadingSub.textContent = t('loading_progress')
+    .replace('{done}', done)
+    .replace('{total}', total);
+}
+
+// ========== Execução da simulação (paralela ou fallback inline) ==========
 function runSim() {
   const inp = getInputs();
   const flags = getFlags();
@@ -917,26 +1299,116 @@ function runSim() {
   const dec = LANG === 'pt' ? ',' : '.';
   $('critBoostHint').textContent = (inp.critBoost / 100).toFixed(2).replace('.', dec);
   $('critFinal').textContent = (CRIT_BASE + inp.critBoost / 100).toFixed(2).replace('.', dec);
-  const totalHours = N_SESSIONS * SESSION_SECONDS / 3600 * N_LEVELS;
-  const locale = LANG === 'pt' ? 'pt-BR' : 'en-US';
-  status.textContent = t('status_simulating').replace('{h}', totalHours.toLocaleString(locale));
+
+  status.textContent = t('status_simulating');
   $('btnRun').disabled = true;
-  setTimeout(() => {
-    const t0 = performance.now();
-    // Seed nova a cada execução — garante que cada clique em "recalcular" gera
-    // sequências aleatórias totalmente diferentes, permitindo verificar que o
-    // padrão de ganho se mantém consistente entre execuções
-    const runSeed = (Math.random() * 0xFFFFFFFF) >>> 0;
-    cache = simulateAll(inp.baseDmgs, inp.charmDmg, critMult, inp.mobHp, inp.mobXp, inp.boxSize, inp.exitThreshold, inp.boxChangeTime, flags, runSeed);
+  showLoading();
+
+  const t0 = performance.now();
+  const runSeed = (Math.random() * 0xFFFFFFFF) >>> 0;
+
+  // FALLBACK: se workers não disponíveis, usa simulação inline
+  if (!USE_WORKERS) {
+    runSimInline({
+      baseDmgs: inp.baseDmgs,
+      charmDmg: inp.charmDmg,
+      critMult,
+      mobHp: inp.mobHp,
+      mobXp: inp.mobXp,
+      boxSize: inp.boxSize,
+      exitThreshold: inp.exitThreshold,
+      boxChangeTime: inp.boxChangeTime,
+      flags,
+      runSeed
+    }, (done, total) => {
+      setProgress(done, total);
+    }).then(result => {
+      const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+      lastElapsed = elapsed;
+      cache = result;
+      const totalHours = N_SESSIONS * SESSION_SECONDS / 3600 * N_LEVELS;
+      const locale = LANG === 'pt' ? 'pt-BR' : 'en-US';
+      status.textContent = t('status_done')
+        .replace('{n}', N_SESSIONS)
+        .replace('{h}', SESSION_SECONDS / 3600)
+        .replace('{total}', totalHours.toLocaleString(locale))
+        .replace('{elapsed}', elapsed);
+      $('btnRun').disabled = false;
+      hideLoading();
+      drawAll();
+    });
+    return;
+  }
+
+  // WORKERS: versão paralela original
+  createWorkerPool();
+  const buckets = partitionLevels(N_LEVELS, N_WORKERS);
+
+  const aggregated = {};
+  let levelsDone = 0;
+  let workersDone = 0;
+  let hadError = false;
+
+  const finalize = () => {
     const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+    lastElapsed = elapsed;
+    cache = aggregated;
+    const totalHours = N_SESSIONS * SESSION_SECONDS / 3600 * N_LEVELS;
+    const locale = LANG === 'pt' ? 'pt-BR' : 'en-US';
     status.textContent = t('status_done')
       .replace('{n}', N_SESSIONS)
       .replace('{h}', SESSION_SECONDS / 3600)
       .replace('{total}', totalHours.toLocaleString(locale))
       .replace('{elapsed}', elapsed);
     $('btnRun').disabled = false;
+    hideLoading();
     drawAll();
-  }, 10);
+  };
+
+  workerPool.forEach((w, idx) => {
+    const myLevels = buckets[idx];
+    if (myLevels.length === 0) {
+      workersDone++;
+      if (workersDone === N_WORKERS && !hadError) finalize();
+      return;
+    }
+
+    w.onmessage = function(e) {
+      const msg = e.data;
+      if (msg.type === 'progress') {
+        levelsDone++;
+        setProgress(levelsDone, N_LEVELS);
+      } else if (msg.type === 'done') {
+        Object.assign(aggregated, msg.result);
+        workersDone++;
+        if (workersDone === N_WORKERS && !hadError) finalize();
+      }
+    };
+    w.onerror = function(err) {
+      if (hadError) return;
+      hadError = true;
+      console.error('Worker error:', err);
+      status.textContent = 'erro: ' + err.message;
+      $('btnRun').disabled = false;
+      hideLoading();
+    };
+
+    w.postMessage({
+      baseDmgs: inp.baseDmgs,
+      charmDmg: inp.charmDmg,
+      critMult,
+      mobHp: inp.mobHp,
+      mobXp: inp.mobXp,
+      boxSize: inp.boxSize,
+      exitThreshold: inp.exitThreshold,
+      boxChangeTime: inp.boxChangeTime,
+      flags,
+      runSeed,
+      levels: myLevels,
+      nSessions: N_SESSIONS,
+      sessionSeconds: SESSION_SECONDS
+    });
+  });
 }
 
 function drawMetrics() {
@@ -983,6 +1455,7 @@ function drawCompare() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      animation: false,
       plugins: {
         legend: { position: 'top', labels: { color: '#8BA4C2', font: { size: 11 }, boxWidth: 10, boxHeight: 10 } },
         tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%' } }
@@ -1014,6 +1487,7 @@ function drawEvol() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      animation: false,
       plugins: {
         legend: { position: 'top', labels: { color: '#8BA4C2', font: { size: 11 }, boxWidth: 10, boxHeight: 10 } },
         tooltip: {
@@ -1059,6 +1533,7 @@ function drawCurve() {
     data: { labels: turns.map(String), datasets: datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
+      animation: false,
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%' } }
@@ -1125,11 +1600,19 @@ function updateUI() {
   lblDmg.textContent = '+' + slider.value;
 }
 
+// ========== Debounce para inputs numéricos ==========
+// Evita disparar simulação a cada tecla quando o usuário tá digitando rápido
+let inputDebounceTimer = null;
+function debouncedRun() {
+  clearTimeout(inputDebounceTimer);
+  inputDebounceTimer = setTimeout(runSim, 250);
+}
+
 [cbCharm, cbCrit, cbInt, cbVar].forEach(cb => {
   cb.addEventListener('change', () => { updateUI(); runSim(); });
 });
 ['dmg1', 'dmg2', 'dmg3', 'charmDmg', 'critBoost', 'mobHp', 'mobXp', 'boxSize', 'exitThreshold', 'boxTime'].forEach(id => {
-  $(id).addEventListener('change', runSim);
+  $(id).addEventListener('change', debouncedRun);
 });
 slider.addEventListener('input', () => { updateUI(); drawMetrics(); });
 sliderA.addEventListener('input', drawCompare);
@@ -1137,8 +1620,6 @@ sliderB.addEventListener('input', drawCompare);
 $('btnRun').addEventListener('click', runSim);
 
 // ========== sistema de compartilhamento por URL ==========
-// Serializa todos os parâmetros do simulador em uma query string compacta.
-// Cada parâmetro usa uma chave curta para manter URLs legíveis.
 const URL_KEYS = {
   d1: 'dmg1', d2: 'dmg2', d3: 'dmg3',
   cd: 'charmDmg', cb: 'critBoost',
@@ -1149,19 +1630,16 @@ const URL_KEYS = {
 
 function serializeState() {
   const params = new URLSearchParams();
-  // inputs numéricos
   Object.entries(URL_KEYS).forEach(([short, id]) => {
     const el = $(id);
     if (el) params.set(short, el.value);
   });
-  // checkboxes (1 por flag)
   let flags = '';
   flags += cbCharm.checked ? '1' : '0';
   flags += cbCrit.checked ? '1' : '0';
   flags += cbInt.checked ? '1' : '0';
   flags += cbVar.checked ? '1' : '0';
   params.set('f', flags);
-  // idioma
   params.set('l', LANG);
   return params.toString();
 }
@@ -1169,14 +1647,12 @@ function serializeState() {
 function deserializeState() {
   const params = new URLSearchParams(window.location.search);
   if (params.toString() === '') return false;
-  // inputs numéricos
   Object.entries(URL_KEYS).forEach(([short, id]) => {
     if (params.has(short)) {
       const el = $(id);
       if (el) el.value = params.get(short);
     }
   });
-  // checkboxes
   if (params.has('f')) {
     const flags = params.get('f');
     cbCharm.checked = flags[0] === '1';
@@ -1184,7 +1660,6 @@ function deserializeState() {
     cbInt.checked = flags[2] === '1';
     cbVar.checked = flags[3] === '1';
   }
-  // idioma
   if (params.has('l')) {
     const lang = params.get('l');
     if (lang === 'pt' || lang === 'en') LANG = lang;
@@ -1197,7 +1672,6 @@ function copyShareLink() {
   const base = window.location.origin + window.location.pathname;
   const fullUrl = base + '?' + qs;
   const btn = $('btnShare');
-  const originalText = btn.textContent;
 
   const showCopied = () => {
     btn.textContent = t('btn_share_copied');
@@ -1206,7 +1680,6 @@ function copyShareLink() {
 
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(fullUrl).then(showCopied).catch(() => {
-      // fallback se clipboard API falhar
       fallbackCopy(fullUrl, showCopied);
     });
   } else {
@@ -1228,7 +1701,7 @@ function fallbackCopy(text, onDone) {
 
 $('btnShare').addEventListener('click', copyShareLink);
 
-// ========== conteúdo do guia ==========
+// ========== guia ==========
 const GUIDE = {
   pt: `
 <h2>Guia — Calculadora de XP/h</h2>
@@ -1361,7 +1834,6 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ===== inicialização =====
-// Carrega estado da URL se houver, senão usa defaults
 const hasUrlState = deserializeState();
 if (hasUrlState) applyI18n();
 updateUI();
